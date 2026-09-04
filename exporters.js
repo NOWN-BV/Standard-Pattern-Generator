@@ -755,8 +755,21 @@ export function download(filename, text, mime = 'text/plain') {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  // IN THE DOCUMENT, AND REVOKED LATE.
+  //
+  // A detached anchor is ignored outright by some browsers, and revoking the
+  // blob URL on the next line RACES the download: at that point the browser has
+  // only been asked to save, it has not read the blob yet. Small files usually
+  // win that race, which is why this looked fine for a preview SVG and then
+  // silently produced nothing for a multi-megabyte DXF - the one case that
+  // actually matters here.
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 30000);
 }
 
 /** PNG via an offscreen canvas render of the SVG. */

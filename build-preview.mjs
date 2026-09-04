@@ -61,6 +61,17 @@ const css = `
   #zoomFit:hover { color: rgba(0,0,0,.8); }
   footer { display: flex; align-items: center; gap: 16px; padding: 12px 20px;
            border-top: 1px solid rgba(0,0,0,.08); flex-wrap: wrap; }
+  /* THE EXPORT BUTTONS MUST ALWAYS BE REACHABLE.
+     These groups used to be one non-wrapping span, so adding the panel-geometry
+     controls to it pushed the export buttons off the right edge on anything
+     narrower than about 1330px - the buttons were still there, still wired, and
+     simply could not be clicked. Each group wraps on its own now, and the file
+     name is allowed to shorten rather than shove them. */
+  .geoblk, .exportblk { display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+                        min-width: 0; }
+  .exportblk { margin-left: auto; }
+  #geoInfo { max-width: 30ch; overflow: hidden; text-overflow: ellipsis;
+             white-space: nowrap; }
   #warn { display: none; margin: 10px 20px 0; padding: 8px 11px; font-size: 12px;
           border: 1px solid rgba(180,60,20,.4); background: rgba(200,80,30,.07); border-radius: 3px; }
   aside { border-left: 1px solid rgba(0,0,0,.1); background: #fffefb; padding: 14px 16px 60px; overflow-y: auto; }
@@ -154,11 +165,13 @@ const html = `<!doctype html>
       <span id="storeWhere" class="storewhere"></span>
     </span>
     <span id="stats"></span>
-    <span style="margin-left:auto;display:flex;gap:7px">
+    <span class="geoblk">
       <label class="importbtn" title="Panel geometry DXF laid under the perforation on every panel. Session only - it is a production input, not part of the pattern recipe, so it is deliberately not saved into a design.">panel geo<input id="btnPanelGeo" type="file" accept=".dxf,application/dxf" hidden></label>
       <select id="geoAlign" title="Where the geometry's own origin lands inside the 600 x 1200 panel box. A flat pattern larger than the module - one with returns - wants CENTRED."><option value="center">centred</option><option value="origin">as drawn</option><option value="bbox">bbox to corner</option></select>
       <label class="lab" title="Geometry lying wholly outside the file's own $EXTMIN/$EXTMAX. A mirrored construction copy left in model space is the usual cause, and merging it would stamp it onto every panel tens of metres away."><input id="geoDrop" type="checkbox" checked> drop stray</label>
       <span id="geoInfo" class="storewhere"></span>
+    </span>
+    <span class="exportblk">
       <button id="x-svg">svg</button>
       <button id="x-dxf" title="Perforation only - the three standard layers. What the pipeline has always expected.">dxf</button>
       <button id="x-dxf-geo" title="Perforation with the panel geometry under it. Needs a panel geo file; the two are separate buttons so one export can never quietly become the other." disabled>dxf + geo</button>

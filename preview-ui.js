@@ -2048,7 +2048,11 @@ function wireExports() {
   const geoInput = document.getElementById('btnPanelGeo');
   const geoDrop = document.getElementById('geoDrop');
   const showGeo = (msg) => {
-    if (geoInfo) geoInfo.textContent = msg;
+    if (!geoInfo) return;
+    // Shown short so it can never shove the export buttons off the row; the
+    // whole of it is on the tooltip.
+    geoInfo.textContent = msg;
+    geoInfo.title = msg;
   };
   const geoOpts = () => ({ dropOutside: geoDrop ? geoDrop.checked : true });
   const describeGeo = () => {
