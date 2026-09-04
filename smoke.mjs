@@ -549,3 +549,47 @@ console.log('all smoke checks passed');
 
   console.log('sizes reach both stated diameters, and a short field says so');
 }
+
+// -- the ramp runs across as well as down -----------------------------------
+//
+// A staggered lattice offsets every other row by half a pitch, so along x the
+// holes sit half a pitch apart. Counting whole cells rounded each offset hole
+// onto its neighbour's index and the ramp came out in PAIRS of identical
+// columns - a doubled column at every step, which is the same class of seam
+// this mode exists to remove. Only the axis carrying the stagger is halved,
+// and that axis is y on a transposed lattice.
+{
+  const B = {
+    cols: 1, rows: 1, pitch: 50, shape: 'circle', minDia: 12.5, maxDia: 25,
+    modulation: 'ramp', modScope: 'run', gamma: 1, sizeLevels: 1, sizeContrast: 0,
+    cull: 0, taper: 0, tiling: 'WALL',
+  };
+  for (const lattice of ['grid', 'stagger', 'hex', 'hexV']) {
+    for (const [angle, axis] of [[0, 'cx'], [90, 'cy'], [180, 'cx'], [270, 'cy']]) {
+      const f = buildField({ ...B, lattice, modAngle: angle });
+      const g = new Map();
+      for (const h of f.holes) {
+        const k = +h[axis].toFixed(4);
+        if (!g.has(k)) g.set(k, new Set());
+        g.get(k).add(+(2 * h.r).toFixed(4));
+      }
+      const keys = [...g.keys()].sort((a, b) => a - b);
+      const where = `${lattice} @${angle}`;
+      // one size per line across the ramp
+      for (const [k, set] of g)
+        assert.equal(set.size, 1, `${where}: ${axis}=${k} carries ${set.size} sizes`);
+      // both ends exact, whichever way round
+      const lo = [...g.get(keys[0])][0];
+      const hi = [...g.get(keys[keys.length - 1])][0];
+      const back = angle === 180 || angle === 270;
+      assert.equal(back ? hi : lo, 12.5, `${where}: near end must be min dia`);
+      assert.equal(back ? lo : hi, 25, `${where}: far end must be max dia`);
+      // and no two neighbouring lines may share a size - that is the doubled
+      // column the half-pitch offset used to produce
+      const vals = keys.map((k) => [...g.get(k)][0]);
+      for (let i = 1; i < vals.length; i++)
+        assert.notEqual(vals[i], vals[i - 1], `${where}: two adjacent lines share a size`);
+    }
+  }
+  console.log('the ramp runs cleanly along either axis on every lattice');
+}

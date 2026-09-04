@@ -2045,7 +2045,21 @@ function modulate(x, y, p, f) {
       const c = Math.cos(a);
       const s = Math.sin(a);
       const horiz = Math.abs(c) >= Math.abs(s);
-      const step = horiz ? sp.px : sp.py;
+      // THE STEP IS BETWEEN DISTINCT POSITIONS, NOT BETWEEN LATTICE CELLS.
+      //
+      // A staggered lattice offsets every other row by half a pitch, so along
+      // that axis the holes actually sit half a pitch apart, not a whole one.
+      // Counting in whole cells rounded each offset hole onto its neighbour's
+      // index, and the ramp came out in PAIRS of identical columns - a doubled
+      // column every step, which is exactly the kind of seam this mode exists
+      // to avoid. The stagger is in x on a normal lattice and in y on a
+      // transposed one, so only the axis that carries it is halved.
+      const f2 = Math.abs((sp.offset ?? 0) % 1);
+      const side = Math.min(f2, 1 - f2);
+      const staggered = sp.offset && side > 0;
+      const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
+      const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
+      const step = horiz ? stepX : stepY;
       const span = horiz ? nw : nh;
       const pos = horiz ? x : y;
       if (!(step > 0) || !(span > 0)) return 0.5;

@@ -80,6 +80,12 @@ first row is exactly min dia and the last exactly max dia whatever the span -
 a linear ramp gets near the ends but stumbles on one row whenever the span is
 not a whole number of rows.
 
+It runs along either axis - `modAngle` 90 top to bottom, 270 the other way,
+0 left to right, 180 right to left - on every lattice. A staggered lattice
+offsets alternate rows by half a pitch, so along that axis the ramp steps every
+half pitch rather than every cell; counting whole cells there put two identical
+columns at each step.
+
 Saved: `Transition 12.5-25`, its `flip`, and `across`. All on hex pitch 50, the
 same lattice as `Basic-50-12` / `Basic-50-25`, so the ends match those panels
 hole for hole - which `smoke.mjs` asserts rather than assumes.
