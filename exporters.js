@@ -272,31 +272,52 @@ export function parsePanelGeo(text, opts = {}) {
       return f ? f[1] : undefined;
     };
     const layer = get('8') ?? '0';
+    // EXTRUSION DIRECTION - the coordinates may not be world coordinates.
+    //
+    // A 2D entity is defined in its own plane, and code 210/220/230 says which
+    // way that plane faces. CAD writes (0,0,-1) for anything drawn on a
+    // mirrored plane, and its x is then measured the other way: world x is
+    // -x. Ignoring this put 55 entities of a real part at +1258 instead of
+    // -1258 - far outside the drawing, where they looked exactly like a stray
+    // mirrored copy someone had left behind. They were not stray. They were
+    // the part, read wrongly, and they were being dropped from the cut file.
+    const ez = Number(get('230') ?? 1);
+    const exX = Number(get('210') ?? 0);
+    const exY = Number(get('220') ?? 0);
+    const mirrored = ez < 0 && Math.abs(exX) < 1e-9 && Math.abs(exY) < 1e-9;
+    // A plane at some arbitrary angle needs the full arbitrary-axis algorithm.
+    // Nothing here has produced one, and guessing would silently misplace
+    // geometry, so it is reported instead.
+    if ((Math.abs(exX) > 1e-9 || Math.abs(exY) > 1e-9) && type !== 'SEQEND' && type !== 'VERTEX')
+      skipped['oblique ' + type] = (skipped['oblique ' + type] ?? 0) + 1;
+    const fx = mirrored ? (v) => -v : (v) => v;
     if (type === 'LINE') {
       layers.add(layer);
       out.push({
         kind: 'line',
         layer,
-        x1: num(get('10')),
+        x1: fx(num(get('10'))),
         y1: num(get('20')),
-        x2: num(get('11')),
+        x2: fx(num(get('11'))),
         y2: num(get('21')),
       });
       i = j;
     } else if (type === 'CIRCLE') {
       layers.add(layer);
-      out.push({ kind: 'circle', layer, cx: num(get('10')), cy: num(get('20')), r: num(get('40')) });
+      out.push({ kind: 'circle', layer, cx: fx(num(get('10'))), cy: num(get('20')), r: num(get('40')) });
       i = j;
     } else if (type === 'ARC') {
       layers.add(layer);
       out.push({
         kind: 'arc',
         layer,
-        cx: num(get('10')),
+        cx: fx(num(get('10'))),
         cy: num(get('20')),
         r: num(get('40')),
-        a1: num(get('50')),
-        a2: num(get('51')),
+        // Under x -> -x every angle becomes 180 - angle, which reverses the
+        // direction of travel, so the ends swap as well.
+        a1: mirrored ? 180 - num(get('51')) : num(get('50')),
+        a2: mirrored ? 180 - num(get('50')) : num(get('51')),
       });
       i = j;
     } else if (type === 'LWPOLYLINE') {
@@ -307,7 +328,7 @@ export function parsePanelGeo(text, opts = {}) {
       for (const [cc, vv] of codes) {
         if (cc === '10') {
           if (vx) verts.push(vx);
-          vx = [num(vv), 0, 0];
+          vx = [fx(num(vv)), 0, 0];
         } else if (cc === '20' && vx) vx[1] = num(vv);
         else if (cc === '42' && vx) vx[2] = num(vv);
       }
@@ -327,7 +348,7 @@ export function parsePanelGeo(text, opts = {}) {
           const f = vc.find((e) => e[0] === kk);
           return f ? num(f[1]) : 0;
         };
-        verts.push([vg('10'), vg('20'), vg('42')]);
+        verts.push([fx(vg('10')), vg('20'), mirrored ? -vg('42') : vg('42')]);
         k = m;
       }
       if (k < p.length && p[k][0] === '0' && p[k][1] === 'SEQEND') {
@@ -748,6 +769,36 @@ export function toRecipe(field, meta = {}) {
 }
 
 // --------------------------------------------------------- downloads ------
+
+/**
+ * Save through the local harness server when there is one, and only fall back
+ * to the browser's own download otherwise.
+ *
+ * Measured on the machine this was built for: the blob is created, the anchor
+ * is in the document, the click fires, nothing throws - and the file still
+ * lands as a GUID `.tmp` with the download name thrown away. Whatever sits
+ * between the browser and the disk here is not reachable from page script, so
+ * the dependable path is to hand the bytes to the server that is already
+ * running and let it write the file. Returns where it went, or null when it
+ * fell back.
+ */
+export async function saveOut(filename, text, mime = 'text/plain') {
+  try {
+    const res = await fetch('/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: filename, text }),
+    });
+    if (res.ok) {
+      const j = await res.json();
+      if (j && j.ok) return j.path;
+    }
+  } catch {
+    // no harness server - fall through to the browser
+  }
+  download(filename, text, mime);
+  return null;
+}
 
 export function download(filename, text, mime = 'text/plain') {
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });

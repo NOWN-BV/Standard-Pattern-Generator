@@ -8,7 +8,7 @@
 // VeilStandardPatternGenerator.jsx. Keep the two in rough feature parity but do
 // not port geometry into here - geometry lives in pattern-core.js only.
 
-/* global resolvePitch, buildField, DEFAULTS, LIMITS, PANEL, LATTICES, MODULATIONS, WAVE_SHAPES, SHAPES, aliasAudit, aliasFix, PRESETS, svgPath, toSVG, toDXF, toRecipe, toPayload, download, parsePanelGeo */
+/* global resolvePitch, buildField, DEFAULTS, LIMITS, PANEL, LATTICES, MODULATIONS, WAVE_SHAPES, SHAPES, aliasAudit, aliasFix, PRESETS, svgPath, toSVG, toDXF, toRecipe, toPayload, download, saveOut, parsePanelGeo */
 
 const state = {
   ...DEFAULTS,
@@ -2034,8 +2034,23 @@ function wireExports() {
       .slice(0, 80);
     return safe || `veil-standard-${state.lattice}-${state.modulation}-${state.cols}x${state.rows}`;
   };
+  // Every export goes through here so the result is always SAID. A click that
+  // silently did nothing is what sent us looking for this in the first place.
+  const saveTo = (name, text, mime) => {
+    const stats = document.getElementById('stats');
+    const note = (msg) => {
+      if (geoInfo) {
+        geoInfo.textContent = msg;
+        geoInfo.title = msg;
+      } else if (stats) stats.textContent = msg;
+    };
+    note('saving ' + name + '...');
+    saveOut(name, text, mime)
+      .then((path) => note(path ? 'saved -> ' + path : 'downloaded ' + name))
+      .catch((e) => note('SAVE FAILED: ' + (e && e.message ? e.message : e)));
+  };
   document.getElementById('x-svg').onclick = () =>
-    download(`${stem()}.svg`, toSVG(current), 'image/svg+xml');
+    saveTo(`${stem()}.svg`, toSVG(current), 'image/svg+xml');
   // PANEL GEOMETRY, HELD FOR THE SESSION ONLY.
   //
   // Not in `state`, which is what a saved design is made of: the same part
@@ -2128,20 +2143,20 @@ function wireExports() {
   };
   syncGeoBtn();
   document.getElementById('x-dxf').onclick = () =>
-    download(`${stem()}.dxf`, toDXF(current, {}), 'application/dxf');
+    saveTo(`${stem()}.dxf`, toDXF(current, {}), 'application/dxf');
   if (geoBtn)
     geoBtn.onclick = () => {
       if (!panelGeoDxf) return;
-      download(`${stem()}-geo.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
+      saveTo(`${stem()}-geo.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
     };
   document.getElementById('x-json').onclick = () =>
-    download(
+    saveTo(
       `${stem()}.payload.json`,
       JSON.stringify(toPayload(current, {}), null, 2),
       'application/json'
     );
   document.getElementById('x-rec').onclick = () =>
-    download(
+    saveTo(
       `${stem()}.recipe.json`,
       JSON.stringify(toRecipe(current, {}), null, 2),
       'application/json'

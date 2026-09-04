@@ -335,3 +335,57 @@ console.log('all smoke checks passed');
 
   console.log('panel geometry: arc extents swept, strays counted and dropped by default');
 }
+
+// -- panel geometry: extrusion direction ------------------------------------
+//
+// A 2D entity is drawn in its own plane and 210/220/230 says which way that
+// plane faces. CAD writes (0,0,-1) for anything on a mirrored plane, and its
+// x is then measured the other way. Ignoring it put 55 entities of a real part
+// on the far side of the drawing, where they looked exactly like a stray
+// mirrored copy - and were being dropped from the cut file as one.
+{
+  const mk = (extrude) =>
+    [
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'LINE', '8', 'GEOMETRY', '10', '100.0', '20', '10.0', '30', '0.0',
+      '11', '200.0', '21', '10.0', '31', '0.0',
+      ...(extrude ? ['210', '0.0', '220', '0.0', '230', '-1.0'] : []),
+      '0', 'ARC', '8', 'GEOMETRY', '10', '100.0', '20', '50.0', '30', '0.0',
+      '40', '10.0', '50', '0.0', '51', '90.0',
+      ...(extrude ? ['210', '0.0', '220', '0.0', '230', '-1.0'] : []),
+      '0', 'ENDSEC', '0', 'EOF',
+    ].join('\r\n');
+
+  const plain = parsePanelGeo(mk(false));
+  const flip = parsePanelGeo(mk(true));
+
+  const line = (g) => g.entities.find((e) => e.kind === 'line');
+  assert.equal(line(plain).x1, 100);
+  assert.equal(line(flip).x1, -100, 'a mirrored plane measures x the other way');
+  assert.equal(line(flip).x2, -200);
+  assert.equal(line(flip).y1, 10, 'y is untouched');
+
+  const arc = (g) => g.entities.find((e) => e.kind === 'arc');
+  assert.equal(arc(flip).cx, -100, 'the centre flips with everything else');
+  // x -> -x maps every angle to 180 - angle, which reverses the direction of
+  // travel, so the ends swap: 0..90 becomes 90..180, not -0..-90.
+  assert.equal(arc(flip).a1, 90);
+  assert.equal(arc(flip).a2, 180);
+  // and the swept extent must follow. Measured on the arc ALONE, because the
+  // line above reaches further and would hide a wrong answer here.
+  const arcOnly = parsePanelGeo(
+    [
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'ARC', '8', 'GEOMETRY', '10', '100.0', '20', '50.0', '30', '0.0',
+      '40', '10.0', '50', '0.0', '51', '90.0',
+      '210', '0.0', '220', '0.0', '230', '-1.0',
+      '0', 'ENDSEC', '0', 'EOF',
+    ].join('\r\n')
+  );
+  // 0..90 about (100,50) sweeps x 100..110; mirrored that is -110..-100.
+  assert.ok(Math.abs(arcOnly.bbox.minX - -110) < 1e-6, 'mirrored arc sweeps the other way');
+  assert.ok(Math.abs(arcOnly.bbox.maxX - -100) < 1e-6);
+  assert.ok(Math.abs(arcOnly.bbox.maxY - 60) < 1e-6, 'y is unchanged by the mirror');
+
+  console.log('panel geometry: mirrored extrusion planes read as world coordinates');
+}

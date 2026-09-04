@@ -13,7 +13,7 @@
 //   node serve.mjs <root-dir> [port]
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, stat, mkdir } from 'node:fs/promises';
 import { join, normalize, extname, resolve } from 'node:path';
 
 const root = resolve(process.argv[2] ?? '.');
@@ -73,6 +73,48 @@ createServer(async (req, res) => {
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
         .end(body);
+      return;
+    }
+
+    // ── saved exports ────────────────────────────────────────────────────
+    //
+    // The browser's own download is not dependable here. Measured on this
+    // machine: the blob is built, the anchor is in the document, the click
+    // fires and no error is raised - and the file still lands as a GUID .tmp
+    // with the download name discarded, which is something between the
+    // browser and whatever is inspecting downloads on the way past. None of
+    // that is reachable from page script.
+    //
+    // So the server writes the file instead. It is already running, it is
+    // already the thing holding designs.json, and a path on disk is a better
+    // answer for a cut file than a browser's Downloads folder anyway.
+    //
+    // Constrained deliberately: into exports/ only, basename only, and only
+    // the extensions this tool emits. The read-only promise above still holds
+    // for every source file it serves.
+    if (rel === '/export' && (req.method === 'POST' || req.method === 'PUT')) {
+      const body = await readBody(req);
+      const { name, text } = JSON.parse(body);
+      const base = String(name ?? '')
+        .replace(/[\\/]/g, '')
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/^\.+/, '')
+        .slice(0, 120);
+      if (!base || !/\.(dxf|svg|json|png)$/i.test(base)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' }).end('{"error":"bad name"}');
+        return;
+      }
+      const dir = join(root, 'exports');
+      const file = join(dir, base);
+      if (!file.startsWith(dir)) {
+        res.writeHead(403).end('forbidden');
+        return;
+      }
+      await mkdir(dir, { recursive: true });
+      await writeFile(file, String(text ?? ''), 'utf8');
+      res
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ ok: true, path: file, bytes: Buffer.byteLength(String(text ?? '')) }));
       return;
     }
 

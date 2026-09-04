@@ -71,6 +71,13 @@ returns and notches.
 - An arc counts for the part it SWEEPS, not for its whole circle. One shallow
   arc of a large radius otherwise puts the bounding box a hundred metres wide
   and throws every centred alignment off.
+- A 2D entity is drawn in its own plane, and codes 210/220/230 say which way
+  that plane faces. CAD writes `(0,0,-1)` for anything on a mirrored plane and
+  its x is then measured the other way; mirroring an arc also reverses its
+  sweep. Planes at some arbitrary angle are reported, not guessed at.
+- Exports are written by the harness server into `exports/` rather than handed
+  to the browser, which on this machine discarded the filename and saved a
+  GUID `.tmp`. Without a server it falls back to a normal download.
 - Geometry lying wholly outside the file own `$EXTMIN` / `$EXTMAX` is treated
   as stray - a mirrored construction copy left in model space is the usual
   cause - and dropped by default, with the count shown. Untick **drop stray**
