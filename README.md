@@ -1,0 +1,124 @@
+# VEIL standard pattern generator (prototype)
+
+Parametric perforation patterns for the Arktura-standard product line —
+adjust live, then export. Sibling to the image-driven SPECTRAL engine in
+`src/client/pattern/`, not a replacement for it.
+
+Default configuration is a **4-panel run** (`cols: 4, rows: 1`) on a single
+continuous lattice.
+
+## Why this is separate from SPECTRAL
+
+|                     | SPECTRAL (`src/client/pattern/generate.ts`) | Standard pattern (this folder)             |
+| ------------------- | ------------------------------------------- | ------------------------------------------ |
+| Hole size driven by | sampled image luminance                     | a parametric recipe (lattice + modulation) |
+| Input               | uploaded raster                             | numbers only                               |
+| Reproducible from   | image + params                              | params alone (`recipe.json`)               |
+| Output contract     | `veil.spectral.v1`                          | `veil.spectral.v1` (identical)             |
+
+Because the payload is identical, the existing Fastify output registry
+generates DXF / PDF / PNG for a standard pattern with **no backend change**.
+
+## Continuity — the part that matters
+
+The lattice is generated in field coordinates from integer indices anchored at
+the field origin, never from the left edge of the visible run. Panel seams
+only decide where the sheet is cut.
+
+Combined with `modScope: 'locked'` (the default), adding a 5th panel extends
+the run and every already-placed hole keeps its exact position and diameter.
+`smoke.mjs` asserts this bit-for-bit. Switch to `modScope: 'run'` and the
+gradient restretches to the new run length instead — correct for a fixed wall,
+wrong for a run that grows on site.
+
+The preview shows a ghosted "continues" panel past the end of the run so the
+seam behaviour is visible while you tune.
+
+## Fabrication rules enforced in the core
+
+All from `src/shared/constants/panels.ts` — the same numbers the production
+engine uses:
+
+- 596 × 1196 mm perforated face on a 600 × 1200 mm module
+- `MIN_GAP` 3 mm minimum land — caps hole diameter against pitch
+- `MIN_HOLE_DIA` 9 mm / `MAX_HOLE_DIA` 75 mm clamp
+- `MIN_PERF_AREA` 63.6 mm² per-hole floor — thin shapes (slot, cross,
+  triangle) need a much larger extent than a circle to clear it
+- `BEND_SNAP_CLEAR` 15 mm edge keep-out, so nothing lands in a fold radius.
+  Holes that violate it are shrunk to fit, dropped, or allowed through —
+  your choice, per `seamRule`.
+
+The footer reports holes, open area %, diameter range, shrunk count and
+dropped count, so every rule that fired is visible rather than silent.
+
+## Files
+
+| File                                  | Lines | Role                                                         |
+| ------------------------------------- | ----- | ------------------------------------------------------------ |
+| `pattern-core.js`                     | 360   | lattice families, modulation drivers, fabrication clamps     |
+| `shape-paths.js`                      | 102   | shape tessellation, ported from `DXF_BUILDER.md` §4.3        |
+| `presets.js`                          | 156   | named standard recipes — **placeholder names, see below**    |
+| `exporters.js`                        | 405   | SVG, R12 DXF, `veil.spectral.v1` payload, recipe JSON        |
+| `PatternControls.jsx`                 | 366   | control rail                                                 |
+| `VeilStandardPatternGenerator.jsx`    | 369   | preview, stats, export bar                                   |
+| `main.jsx` / `index.html`             | 28    | standalone React entry point                                 |
+| `smoke.mjs`                           | 140   | node smoke test — continuity + fabricability invariants      |
+| `preview-ui.js` + `build-preview.mjs` | 467   | no-install harness: bundles the real core into a single HTML |
+| `sketch.mjs`                          | 146   | renders the review SVGs in `samples/`                        |
+
+All under the 600-line cap in `CLAUDE.md`. `preview.html` and `samples/*.svg`
+are generated — they are in `.prettierignore`; regenerate, don't edit.
+
+## Run it
+
+```bash
+node prototypes/veil-standard-pattern/smoke.mjs
+```
+
+The geometry core and all three writers are pure JS with no React or DOM
+dependency, so the smoke test needs nothing installed.
+
+To click around without installing anything, build the harness and open the
+file it writes:
+
+```bash
+node prototypes/veil-standard-pattern/build-preview.mjs
+```
+
+It inlines the actual `pattern-core` / `shape-paths` / `presets` / `exporters`
+sources into `preview.html`, so the harness cannot drift from the engine.
+Same controls, same exports, vanilla JS instead of React.
+
+```bash
+node prototypes/veil-standard-pattern/sketch.mjs
+```
+
+writes `samples/run-continuity.svg` (the 4-panel run plus the 5th panel
+continuing it) and `samples/preset-strip.svg` (one module per recipe).
+
+For the UI, this repo does not currently depend on React — adding it to the
+root `package.json` is an architecture decision, so it is **not** done here.
+Two options:
+
+1. **Isolated dev server** (nothing touches the root manifest):
+
+   ```bash
+   cd prototypes/veil-standard-pattern && npm i -D vite @vitejs/plugin-react react react-dom && npx vite
+   ```
+
+2. **Port to the app's vanilla-TS idiom** — the JSX is deliberately thin: all
+   geometry lives in `pattern-core.js`, so only the two `.jsx` files need
+   rewriting as TS render functions to drop it into `src/client/`.
+
+## Before this ships
+
+- **Preset names are placeholders.** `docs/design-handoff/BEHAVIOR.md`
+  ("Source-of-truth data — DO NOT INVENT") forbids invented product codes.
+  Replace every `id` / `name` in `presets.js` with the real Arktura
+  standard-pattern names from the PIM, and check each recipe's pitch and
+  diameter ladder against the published open-area figures.
+- **Client-side DXF is prototype-only.** Production DXF generation belongs to
+  the server (`CLAUDE.md`, "Architecture context"). When integrating, keep the
+  SVG preview, drop `toDXF`, and POST `toPayload()` to the output registry.
+- Add the `veil.standard-pattern.v1` recipe schema to `src/shared/schema/` if
+  saved standard designs need to round-trip through Supabase.

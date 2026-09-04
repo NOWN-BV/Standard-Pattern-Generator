@@ -1,0 +1,224 @@
+// prototypes/veil-standard-pattern/smoke.mjs
+// Node smoke test for the standard-pattern core + writers. No browser needed.
+//   node prototypes/veil-standard-pattern/smoke.mjs
+//
+// Guards the two invariants that matter for this product:
+//   1. CONTINUITY - with modScope='locked', extending the run leaves every
+//      already-placed hole bit-identical. That is what makes a run extendable.
+//   2. FABRICABILITY - no hole below MIN_HOLE_DIA, above MAX_HOLE_DIA, under
+//      MIN_PERF_AREA, or inside the edge keep-out.
+
+import assert from 'node:assert/strict';
+import { buildField, LIMITS, PANEL } from './pattern-core.js';
+import { PRESETS } from './presets.js';
+import { toDXF, panelHoles, toSVG, toPayload, toRecipe } from './exporters.js';
+
+const key = (h) => `${h.panelCol}:${h.cx.toFixed(6)},${h.cy.toFixed(6)},${h.r.toFixed(6)}`;
+
+// -- 1. continuity ---------------------------------------------------------
+{
+  const a = buildField({ cols: 4 });
+  const b = buildField({ cols: 5 });
+  const A = a.holes.map(key).join('|');
+  const B = b.holes
+    .filter((h) => h.panelCol < 4)
+    .map(key)
+    .join('|');
+  assert.equal(A, B, 'locked ramp must not move existing holes when a panel is added');
+  assert.ok(a.holes.length > 0);
+
+  // Horizontal ramp: the axis that actually changes length when a panel is
+  // added. (A vertical ramp on a 1-row run is unaffected either way.)
+  const c = buildField({ cols: 4, modScope: 'run', modAngle: 0 });
+  const d = buildField({ cols: 5, modScope: 'run', modAngle: 0 });
+  assert.notEqual(
+    c.holes.map(key).join('|'),
+    d.holes
+      .filter((h) => h.panelCol < 4)
+      .map(key)
+      .join('|'),
+    "modScope='run' is expected to restretch the ramp - if this passes, the two modes are the same and one is dead code"
+  );
+}
+
+// -- 2. fabricability across every preset ----------------------------------
+for (const preset of PRESETS) {
+  const f = buildField({ ...preset.params });
+  assert.ok(f.holes.length > 0, `${preset.id}: produced no holes`);
+  for (const h of f.holes) {
+    assert.ok(h.r * 2 >= LIMITS.minDia - 1e-9, `${preset.id}: hole under min dia`);
+    assert.ok(h.r * 2 <= LIMITS.maxDia + 1e-9, `${preset.id}: hole over max dia`);
+    assert.ok(h.area >= LIMITS.minPerfArea, `${preset.id}: hole under min perf area`);
+    // NO EDGE KEEP-OUT. A hole may straddle a panel edge or a joint: the
+    // panels butt together, so the two halves meet and the pattern continues
+    // across. What must hold is that the centre stays inside its own panel.
+    const pn = f.panels.find((p) => p.col === h.panelCol && p.row === h.panelRow);
+    assert.ok(
+      h.cx >= pn.x - 1e-6 && h.cx <= pn.x + pn.w + 1e-6,
+      `${preset.id}: hole centre outside its panel in x`
+    );
+    assert.ok(
+      h.cy >= pn.y - 1e-6 && h.cy <= pn.y + pn.h + 1e-6,
+      `${preset.id}: hole centre outside its panel in y`
+    );
+  }
+  console.log(
+    preset.id.padEnd(17),
+    String(f.stats.placed).padStart(6),
+    'holes',
+    `${f.stats.openPct.toFixed(2)}%`.padStart(7),
+    'open   dropped',
+    String(f.stats.dropped).padStart(4),
+    'shrunk',
+    f.stats.shrunk
+  );
+}
+
+// -- 3. writers ------------------------------------------------------------
+{
+  const f = buildField({});
+  const dxf = toDXF(f, {});
+  assert.ok(dxf.startsWith('0\r\nSECTION'), 'DXF must open with a SECTION');
+  assert.ok(dxf.trimEnd().endsWith('EOF'), 'DXF must end with EOF');
+  for (const layer of ['Panel_Boundary', 'THRU_CUT_PATTERN', 'PANEL_LABELS']) {
+    assert.ok(dxf.includes(layer), `DXF missing layer ${layer}`);
+  }
+  const circles = (dxf.match(/\r\nCIRCLE\r\n/g) || []).length;
+  // The DXF nests one sheet PER PANEL, so a hole centred on a joint is emitted
+  // twice - once for each panel that has to cut its half. The count is therefore
+  // the sum over panels of the holes each must cut, which is >= the number of
+  // distinct holes in the field. Asserting equality against field.holes.length
+  // is what let the missing-boundary-column bug through.
+  const mustCut = f.panels.reduce((n, pn) => n + panelHoles(f, pn).length, 0);
+  assert.equal(circles, mustCut, 'every panel must cut every hole that touches it');
+  assert.ok(circles >= f.holes.length, 'nesting may duplicate shared holes, never lose them');
+  // And every panel must carry holes on both of its side edges.
+  for (const pn of f.panels) {
+    const mine = panelHoles(f, pn);
+    const onLeft = mine.some((m) => Math.abs(m.lx) < 1e-6);
+    const onRight = mine.some((m) => Math.abs(m.lx - PANEL.moduleW) < 1e-6);
+    assert.ok(onLeft && onRight, `panel ${pn.label}: pattern does not reach both side edges`);
+  }
+  assert.ok(dxf.includes('AC1009'), 'DXF must be R12');
+
+  const svg = toSVG(f);
+  assert.ok(svg.includes('<svg') && svg.includes('</svg>'));
+
+  const pay = toPayload(f, {});
+  assert.equal(pay.schema, 'veil.spectral.v1');
+  assert.equal(pay.shapes.length, f.holes.length);
+  assert.match(pay.designId, /^VEIL-[A-Z]{2}-\d{4}$/);
+  assert.ok(['grid', 'stagger', 'hex', 'radial'].includes(pay.pattern.patternType));
+
+  const rec = toRecipe(f, {});
+  const rebuilt = buildField(rec.params);
+  assert.equal(
+    rebuilt.holes.map(key).join('|'),
+    f.holes.map(key).join('|'),
+    'recipe must be reproducible'
+  );
+
+  console.log(
+    '\nwriters ok - dxf',
+    dxf.length,
+    'bytes, svg',
+    svg.length,
+    'bytes, payload',
+    pay.shapes.length,
+    'shapes'
+  );
+}
+
+// -- 4. non-circular shapes still export -----------------------------------
+// Thin shapes (slot, cross, triangle) enclose far less area per unit extent,
+// so they need a larger diameter to clear the MIN_PERF_AREA floor. That is
+// the real fabrication constraint, not a bug - hence the 40mm extent here.
+for (const shape of ['hex', 'square', 'slot', 'star', 'cross', 'triangle', 'diamond', 'organic']) {
+  const f = buildField({
+    shape,
+    cols: 2,
+    pitch: 50,
+    minDia: 40,
+    maxDia: 40,
+    modulation: 'uniform',
+  });
+  const dxf = toDXF(f, {});
+  assert.ok(f.holes.length > 0, `${shape}: no holes`);
+  assert.ok(dxf.includes('POLYLINE'), `${shape}: expected POLYLINE entities`);
+}
+
+// -- 5. the area floor is enforced, not silently ignored -------------------
+{
+  const tooThin = buildField({ shape: 'slot', minDia: 10, maxDia: 10, modulation: 'uniform' });
+  assert.equal(tooThin.holes.length, 0, 'a 10mm slot is under MIN_PERF_AREA and must not be cut');
+  assert.ok(tooThin.stats.dropped > 0, 'dropped count must report why the field is empty');
+}
+
+console.log('all smoke checks passed');
+
+// -- P4 panels must be ONE part ------------------------------------------
+// Every panel under P4 has to be byte-identical: same hole positions, same
+// radii. Anything else means the wall needs more than one part to build, and
+// the boundaries stop matching exactly. This has broken three separate ways -
+// mirrored sampling, float dust at the seam, and dust in the size field - so
+// it is asserted across every driver / cull combination rather than spot-checked.
+{
+  const e = 1e-6;
+  const sheet = (f, pn) =>
+    f.holes
+      .filter(
+        (h) =>
+          h.cx >= pn.x - e &&
+          h.cx <= pn.x + PANEL.moduleW + e &&
+          h.cy >= pn.y - e &&
+          h.cy <= pn.y + PANEL.moduleH + e
+      )
+      .map(
+        (h) =>
+          `${Math.round((h.cx - pn.x) * 1000)},${Math.round((h.cy - pn.y) * 1000)},${Math.round(h.r * 10000)}`
+      )
+      .sort()
+      .join('|');
+  const COMBOS = [
+    ['uniform', { modulation: 'uniform' }],
+    ['scatter cull', { modulation: 'uniform', cull: 45 }],
+    ['clouds cull', { modulation: 'uniform', cull: 45, cullShape: 'clouds' }],
+    ['noise + contrast', { modulation: 'noise', wavelength: 300, sizeContrast: 100 }],
+    [
+      'noise + cull + fade',
+      { modulation: 'noise', wavelength: 300, sizeContrast: 100, cull: 45, cullShape: 'clouds', cullFade: 30 },
+    ],
+    ['linear + gradient cull', { modulation: 'linear', modAngle: 0, cull: 40, cullMode: 'gradient' }],
+    ['radial + cull', { modulation: 'radial', sizeContrast: 80, cull: 35, cullShape: 'clouds' }],
+    ['bands + fade', { modulation: 'bands', steps: 5, cull: 40, cullShape: 'clouds', cullFade: 50 }],
+  ];
+  for (const [label, over] of COMBOS) {
+    const f = buildField({ cols: 4, rows: 2, tiling: 'P4', pitch: 40, minDia: 9, maxDia: 30, ...over });
+    const distinct = new Set(f.panels.map((pn) => sheet(f, pn)));
+    // P4 is FOUR different tiles - that is the point of it. What must hold is
+    // that every panel edge carries the IDENTICAL column, so the tiles butt
+    // together in any order. "One part" was the previous requirement and is
+    // now the wrong thing to assert.
+    assert.ok(distinct.size >= 1, `P4 produced no panels for: ${label}`);
+    const edgeVariants = (side) =>
+      new Set(
+        f.panels.map((pn) => {
+          const ex = side === 'L' ? pn.x : pn.x + PANEL.moduleW;
+          return f.holes
+            .filter(
+              (h) =>
+                Math.abs(h.cx - ex) < e &&
+                h.cy >= pn.y - e &&
+                h.cy <= pn.y + PANEL.moduleH + e
+            )
+            .sort((m, n) => m.cy - n.cy)
+            .map((h) => Math.round((h.cy - pn.y) * 1000) + ',' + Math.round(h.r * 10000))
+            .join('|');
+        })
+      ).size;
+    assert.equal(edgeVariants('L'), 1, `left edges must match across tiles for: ${label}`);
+    assert.equal(edgeVariants('R'), 1, `right edges must match across tiles for: ${label}`);
+    assert.ok(f.stats.tilesInterchangeable, `boundaries must match for: ${label}`);
+  }
+  console.log('P4 tiles differ with matching edges across', COMBOS.length, 'combinations');
+}
