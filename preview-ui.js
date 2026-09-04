@@ -2101,21 +2101,35 @@ function wireExports() {
         panelGeoDxf = String(reader.result);
         panelGeoName = file.name;
         if (!describeGeo()) panelGeoDxf = null;
+        syncGeoBtn();
       };
       reader.readAsText(file);
     });
-  const dxfMeta = () =>
-    panelGeoDxf
-      ? {
-          panelGeo: {
-            dxf: panelGeoDxf,
-            align: geoAlign ? geoAlign.value : 'center',
-            ...geoOpts(),
-          },
-        }
-      : {};
+  // TWO BUTTONS, NOT ONE THAT CHANGES ITS MIND.
+  //
+  // A single button that folded the geometry in whenever a file happened to be
+  // loaded would make the SAME click produce two different cut files depending
+  // on state set minutes earlier. The plain export is what the pipeline has
+  // always expected; the merged one is a deliberate, separately named act.
+  const dxfMeta = () => ({
+    panelGeo: {
+      dxf: panelGeoDxf,
+      align: geoAlign ? geoAlign.value : 'center',
+      ...geoOpts(),
+    },
+  });
+  const geoBtn = document.getElementById('x-dxf-geo');
+  const syncGeoBtn = () => {
+    if (geoBtn) geoBtn.disabled = !panelGeoDxf;
+  };
+  syncGeoBtn();
   document.getElementById('x-dxf').onclick = () =>
-    download(`${stem()}.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
+    download(`${stem()}.dxf`, toDXF(current, {}), 'application/dxf');
+  if (geoBtn)
+    geoBtn.onclick = () => {
+      if (!panelGeoDxf) return;
+      download(`${stem()}-geo.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
+    };
   document.getElementById('x-json').onclick = () =>
     download(
       `${stem()}.payload.json`,

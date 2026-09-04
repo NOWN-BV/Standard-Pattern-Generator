@@ -123,7 +123,8 @@
       <label class="lab" title="Geometry lying wholly outside the file's own $EXTMIN/$EXTMAX. A mirrored construction copy left in model space is the usual cause, and merging it would stamp it onto every panel tens of metres away."><input id="geoDrop" type="checkbox" checked> drop stray</label>
       <span id="geoInfo" class="storewhere"></span>
       <button id="x-svg">svg</button>
-      <button id="x-dxf">dxf</button>
+      <button id="x-dxf" title="Perforation only - the three standard layers. What the pipeline has always expected.">dxf</button>
+      <button id="x-dxf-geo" title="Perforation with the panel geometry under it. Needs a panel geo file; the two are separate buttons so one export can never quietly become the other." disabled>dxf + geo</button>
       <button id="x-json">payload</button>
       <button id="x-rec">recipe</button>
     </span>
@@ -6756,21 +6757,35 @@ function wireExports() {
         panelGeoDxf = String(reader.result);
         panelGeoName = file.name;
         if (!describeGeo()) panelGeoDxf = null;
+        syncGeoBtn();
       };
       reader.readAsText(file);
     });
-  const dxfMeta = () =>
-    panelGeoDxf
-      ? {
-          panelGeo: {
-            dxf: panelGeoDxf,
-            align: geoAlign ? geoAlign.value : 'center',
-            ...geoOpts(),
-          },
-        }
-      : {};
+  // TWO BUTTONS, NOT ONE THAT CHANGES ITS MIND.
+  //
+  // A single button that folded the geometry in whenever a file happened to be
+  // loaded would make the SAME click produce two different cut files depending
+  // on state set minutes earlier. The plain export is what the pipeline has
+  // always expected; the merged one is a deliberate, separately named act.
+  const dxfMeta = () => ({
+    panelGeo: {
+      dxf: panelGeoDxf,
+      align: geoAlign ? geoAlign.value : 'center',
+      ...geoOpts(),
+    },
+  });
+  const geoBtn = document.getElementById('x-dxf-geo');
+  const syncGeoBtn = () => {
+    if (geoBtn) geoBtn.disabled = !panelGeoDxf;
+  };
+  syncGeoBtn();
   document.getElementById('x-dxf').onclick = () =>
-    download(`${stem()}.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
+    download(`${stem()}.dxf`, toDXF(current, {}), 'application/dxf');
+  if (geoBtn)
+    geoBtn.onclick = () => {
+      if (!panelGeoDxf) return;
+      download(`${stem()}-geo.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
+    };
   document.getElementById('x-json').onclick = () =>
     download(
       `${stem()}.payload.json`,

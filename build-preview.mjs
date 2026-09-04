@@ -160,7 +160,8 @@ const html = `<!doctype html>
       <label class="lab" title="Geometry lying wholly outside the file's own $EXTMIN/$EXTMAX. A mirrored construction copy left in model space is the usual cause, and merging it would stamp it onto every panel tens of metres away."><input id="geoDrop" type="checkbox" checked> drop stray</label>
       <span id="geoInfo" class="storewhere"></span>
       <button id="x-svg">svg</button>
-      <button id="x-dxf">dxf</button>
+      <button id="x-dxf" title="Perforation only - the three standard layers. What the pipeline has always expected.">dxf</button>
+      <button id="x-dxf-geo" title="Perforation with the panel geometry under it. Needs a panel geo file; the two are separate buttons so one export can never quietly become the other." disabled>dxf + geo</button>
       <button id="x-json">payload</button>
       <button id="x-rec">recipe</button>
     </span>
