@@ -1411,10 +1411,24 @@ function render() {
         (s.edgeMatchY ? '' : 'the top and bottom panel edges differ') +
         '. Tiles are not interchangeable: AB works, AA does not. Use a driver that completes whole cycles across a panel (e.g. wave with wavelength 600 or 300), or uniform.';
   }
-  document.getElementById('warn').style.display = s.placed ? 'none' : 'block';
-  document.getElementById('warn').textContent =
-    `Nothing is cut: all ${s.dropped} candidates fall under the ${LIMITS.minPerfArea}mm2 minimum ` +
-    `perforation area. There is no edge keep-out - holes may straddle a joint.`;
+  const warn = document.getElementById('warn');
+  if (!s.placed) {
+    warn.style.display = 'block';
+    warn.textContent =
+      `Nothing is cut: all ${s.dropped} candidates fall under the ${LIMITS.minPerfArea}mm2 minimum ` +
+      `perforation area. There is no edge keep-out - holes may straddle a joint.`;
+  } else if (s.diaClamped) {
+    // The size asked for was not the size delivered. On a transition panel
+    // that is the whole specification, so it cannot be left to be noticed.
+    warn.style.display = 'block';
+    warn.textContent =
+      `Max dia ${s.diaAsked}mm does not fit this lattice: it can carry ${s.diaCap}mm, so the ` +
+      `largest holes were cut to that. Widen the pitch (or the row spacing) if the ${s.diaAsked}mm ` +
+      `end has to be exact - a transition panel that does not reach its end diameter will not ` +
+      `match the panel it butts against.`;
+  } else {
+    warn.style.display = 'none';
+  }
 }
 
 
@@ -1567,7 +1581,7 @@ const TIPS = {
   crossSharp:
     'How the two crossing wave families combine. At 100% the stronger of the two wins, giving crisp continuous bands with bright intersections - the argyle look. Lower blends them, so the bands soften and only their crossings stay bright.',
   modulation:
-    'What drives hole size across the panel. Uniform: every hole the same. Linear: a straight ramp. Radial: grows from a centre point. Wave: one family of diagonal stripes. Lattice: two crossing families, giving a diamond grid of large holes. Chevron: the same two families multiplied, so only their crossings open up. Bands / noise / checker: stepped, organic and chequered variation.',
+    'What drives hole size across the panel. Uniform: every hole the same. Linear: a straight ramp. RAMP: the one for a TRANSITION PANEL - it counts the lattice’s own rows instead of measuring millimetres, so the first row is exactly min dia, the last exactly max dia, and every row between is an equal step. Linear gets near the ends but lands on whatever each row position gives, and stumbles on one row whenever the span is not a whole number of rows - which shows at the joint on a panel whose whole job is to meet the standard panel beside it. Radial: grows from a centre point. Wave: one family of diagonal stripes. Lattice: two crossing families, giving a diamond grid of large holes. Chevron: the same two families multiplied, so only their crossings open up. Bands / noise / checker: stepped, organic and chequered variation.',
   modAngle: 'Direction the ramp runs. 0 = left to right, 90 = top to bottom.',
   sizeLevels:
     'Cuts the driver into steps before it sets the hole size, so a hole is one of a few sizes rather than anywhere on the ramp. Two gives a hard edge between big holes and small ones - a block instead of a fade. 1 leaves it continuous.',

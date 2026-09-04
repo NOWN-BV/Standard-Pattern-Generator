@@ -156,6 +156,7 @@ export const MODULATIONS = [
   'image',
   'uniform',
   'linear',
+  'ramp',
   'zigzag',
   'radial',
   'wave',
@@ -2008,6 +2009,35 @@ function modulate(x, y, p, f) {
       const hi = Math.max(0, c) + Math.max(0, s);
       return hi === lo ? 0.5 : clamp((proj - lo) / (hi - lo), 0, 1);
     }
+    // COUNTED IN ROWS, NOT MEASURED IN MILLIMETRES.
+    //
+    // A linear ramp is a function of where a hole IS, so the outermost row
+    // lands on whatever value its position happens to give - near the end,
+    // never exactly on it. A TRANSITION PANEL is defined by its ends: it butts
+    // against a standard panel of one hole size at one edge and a standard
+    // panel of another at the other, and if its end row is 24.6mm where the
+    // neighbour is 25 the joint shows. So this counts the lattice's own rows
+    // and divides: the first row is exactly min dia, the last exactly max dia,
+    // and every row between is an equal step. Nothing lands between rows, so
+    // there is nothing to round.
+    //
+    // Direction follows 'linear': 90 runs top to bottom, 0 left to right, and
+    // the opposite sign of the axis runs the other way.
+    case 'ramp': {
+      const sp = latticeSpacing(p);
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      const horiz = Math.abs(c) >= Math.abs(s);
+      const step = horiz ? sp.px : sp.py;
+      const span = horiz ? nw : nh;
+      const pos = horiz ? x : y;
+      if (!(step > 0) || !(span > 0)) return 0.5;
+      // Intervals across the span, so both ends are rows and not a fraction.
+      const n = Math.max(1, Math.round(span / step));
+      const j = clamp(Math.round(pos / step), 0, n);
+      const t = j / n;
+      return (horiz ? c < 0 : s < 0) ? 1 - t : t;
+    }
     case 'radial': {
       // INSCRIBED IN THE PERIOD, NOT MEASURED IN MILLIMETRES.
       //
@@ -2245,6 +2275,17 @@ export function buildField(params) {
   const capR = maxRadiusFor(p);
   const minR = Math.min(Math.max(p.minDia, LIMITS.minDia) / 2, capR);
   const maxR = Math.max(minR, Math.min(p.maxDia / 2, capR));
+  // SAY SO WHEN THE ASKED-FOR SIZE WAS NOT DELIVERED. Reported on stats below,
+  // once it exists.
+  //
+  // The lattice bounds the hole, so a diameter it cannot carry is quietly
+  // reduced. That is right - a negative web is not an option - but it must not
+  // be silent. A transition panel is specified BY its end diameters: asking
+  // for 25mm on a pitch that tops out at 18 and getting 17.7 without a word
+  // produces a panel that does not match the one it butts against, and nothing
+  // on screen would have said why.
+  const diaCap = +(2 * capR).toFixed(3);
+  const diaClamped = p.maxDia > 2 * capR + 1e-9;
   // ALWAYS ON GRID. Lattice rotation and jitter are removed: a rotated or
   // jittered lattice cannot put a hole centre on every joint, which is the
   // property that makes the pattern continue across a panel edge.
@@ -2259,6 +2300,9 @@ export function buildField(params) {
   const holes = [];
   const candidates = [];
   const stats = { placed: 0, dropped: 0, shrunk: 0, culled: 0, openArea: 0, perPanel: {} };
+  stats.diaCap = diaCap;
+  stats.diaAsked = p.maxDia;
+  stats.diaClamped = diaClamped;
   let id = 0;
 
   // Three edge directions from each node, as (di, dj) steps on the lattice.
@@ -2457,9 +2501,22 @@ export function buildField(params) {
               const b = imageBox(p, f);
               return b.wrap ? { x: wrapSeam(x, b.w), y: wrapSeam(y, b.h) } : { x, y };
             })()
-          : per.w === PANEL.moduleW && per.h === PANEL.moduleH
-            ? sp
-            : { x: wrapSeam(x, per.w), y: wrapSeam(y, per.h) };
+          : // WALL LAYS THE DESIGN DOWN ONCE. THERE IS NOTHING TO WRAP IT ON.
+            //
+            // wrapSeam snaps a coordinate within a micron of EITHER end onto 0,
+            // because on a repeating tile those are the same point. Under WALL
+            // they are not: the top of the run and the bottom of it are
+            // opposite ends of one gradient. The driver period is the whole run
+            // there, so wrapping was a no-op everywhere except the final row and
+            // column - which it sent to the value belonging to the first. Any
+            // multi-panel WALL gradient had its last row wrong, and on a
+            // transition panel, whose entire job is to match the panel it butts
+            // against, that is the one row that has to be right.
+            p.tiling === 'WALL'
+            ? { x, y }
+            : per.w === PANEL.moduleW && per.h === PANEL.moduleH
+              ? sp
+              : { x: wrapSeam(x, per.w), y: wrapSeam(y, per.h) };
       // Per-tile size variation. Each tile drives its size field from its own
       // seed, blended back to tile A's near the panel edge so boundaries still
       // match. Without this the four tiles share one size field and are

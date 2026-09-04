@@ -51,6 +51,27 @@ engine uses:
 The footer reports holes, open area %, diameter range, shrunk count and
 dropped count, so every rule that fired is visible rather than silent.
 
+## Transition panels
+
+A transition panel is specified by its ENDS: it butts against a standard panel
+of one hole size at one edge and another size at the other, and if its end row
+is not exactly that size the joint shows.
+
+Set **ramp** as the driver, min dia to one end and max dia to the other, and
+`modAngle` for the direction (90 top to bottom, 270 the other way, 0 across).
+Ramp counts the lattice own rows rather than measuring millimetres, so the
+first row is exactly min dia and the last exactly max dia whatever the span -
+a linear ramp gets near the ends but stumbles on one row whenever the span is
+not a whole number of rows.
+
+Saved: `Transition 12.5-25`, its `flip`, and `across`. All on hex pitch 50, the
+same lattice as `Basic-50-12` / `Basic-50-25`, so the ends match those panels
+hole for hole - which `smoke.mjs` asserts rather than assumes.
+
+If the pitch cannot carry the diameter asked for, the holes are cut smaller -
+a negative web is not an option - and the preview says so in the warning bar.
+It is not left to be noticed.
+
 ## Panel geometry in the DXF
 
 `DXF_BUILDER.md` always said the cut and bend layers "live in the separate

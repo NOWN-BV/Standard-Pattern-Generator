@@ -389,3 +389,78 @@ console.log('all smoke checks passed');
 
   console.log('panel geometry: mirrored extrusion planes read as world coordinates');
 }
+
+// -- transition panels ------------------------------------------------------
+//
+// A transition panel is specified by its ENDS: it butts against a standard
+// panel of one hole size at one edge and another size at the other. If the end
+// row is not exactly that size the joint shows, so this checks the shared row
+// hole for hole against the standard fields either side - not that the ramp
+// merely got close.
+{
+  const STD = {
+    cols: 1, rows: 1, tiling: 'WALL', lattice: 'hex', pitch: 50, shape: 'circle',
+    modulation: 'uniform', gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, taper: 0,
+  };
+  const row = (f, y) =>
+    f.holes
+      .filter((h) => Math.abs(h.cy - y) < 1e-6)
+      .sort((a, b) => a.cx - b.cx)
+      .map((h) => h.cx.toFixed(4) + '@' + (2 * h.r).toFixed(4))
+      .join('|');
+
+  const fine = buildField({ ...STD, minDia: 12.5, maxDia: 12.5 });
+  const coarse = buildField({ ...STD, minDia: 25, maxDia: 25 });
+  const trans = buildField({
+    ...STD, minDia: 12.5, maxDia: 25, modulation: 'ramp', modAngle: 90, modScope: 'run',
+  });
+
+  assert.ok(row(trans, 0).length > 0, 'the transition must have a row on its top edge');
+  assert.equal(row(trans, 0), row(fine, PANEL.moduleH), 'top edge must match the fine panel');
+  assert.equal(row(trans, PANEL.moduleH), row(coarse, 0), 'bottom edge must match the coarse panel');
+
+  // Every row an equal step: a ramp measured in millimetres stumbles on one row
+  // whenever the span is not a whole number of rows.
+  const stepsOf = (mod, spanMm) => {
+    const f = buildField({
+      ...STD, minDia: 12.5, maxDia: 25, modulation: mod, modAngle: 90,
+      modScope: 'locked', spanMm, lattice: 'grid', latticeAspect: 100, pitch: 30,
+    });
+    const by = new Map();
+    for (const h of f.holes) if (!by.has(+h.cy.toFixed(2))) by.set(+h.cy.toFixed(2), 2 * h.r);
+    const ys = [...by.keys()].sort((a, b) => a - b);
+    const d = [];
+    for (let i = 1; i < ys.length; i++) {
+      const step = by.get(ys[i]) - by.get(ys[i - 1]);
+      if (step > 1e-9) d.push(+step.toFixed(2)); // ignore the flat clamped tail
+    }
+    return new Set(d).size;
+  };
+  assert.equal(stepsOf('ramp', 850), 1, 'ramp must step evenly however the span divides');
+  assert.ok(stepsOf('linear', 850) > 1, 'if linear were also even, ramp would be dead weight');
+
+  // WALL lays the design down once, so nothing may wrap: the final row used to
+  // take the value belonging to the first.
+  const wide = buildField({
+    ...STD, cols: 3, minDia: 12.5, maxDia: 25, modulation: 'ramp', modAngle: 90, modScope: 'run',
+  });
+  const last = wide.holes.filter((h) => Math.abs(h.cy - PANEL.moduleH) < 1e-6);
+  assert.ok(last.length > 0);
+  for (const h of last)
+    assert.ok(
+      Math.abs(2 * h.r - 25) < 1e-6,
+      'the last row of a multi-panel WALL run must not wrap to the first row value'
+    );
+
+  // A size the lattice cannot carry is reduced - that is right - but it must be
+  // reported, because on a transition panel the end diameter IS the spec.
+  const tight = buildField({
+    ...STD, lattice: 'grid', latticeAspect: 70, pitch: 30, minDia: 12.5, maxDia: 25,
+    modulation: 'ramp', modAngle: 90, modScope: 'run',
+  });
+  assert.equal(tight.stats.diaClamped, true, 'an unreachable end diameter must be flagged');
+  assert.ok(tight.stats.diaCap < 25);
+  assert.equal(trans.stats.diaClamped, false, 'and not flagged when it does fit');
+
+  console.log('transition panel ends match the standard panels either side, hole for hole');
+}
