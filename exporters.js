@@ -77,6 +77,8 @@ export function toSVG(field, opts = {}) {
 
 // ---------------------------------------------------------------- DXF ------
 
+const STD_LAYERS = new Set(['0', 'Panel_Boundary', 'THRU_CUT_PATTERN', 'PANEL_LABELS']);
+
 const hexToColorInt = (hex) => {
   const v = String(hex).replace('#', '');
   const r = parseInt(v.slice(0, 2), 16) || 0;
@@ -144,7 +146,7 @@ function dxfHeader(maxX, maxY) {
   ];
 }
 
-function dxfTables() {
+function dxfTables(extraLayers = []) {
   const layer = (name, color) => [
     '0',
     'LAYER',
@@ -172,11 +174,231 @@ function dxfTables() {
     ...layer('Panel_Boundary', 7),
     ...layer('THRU_CUT_PATTERN', 1),
     ...layer('PANEL_LABELS', 3),
+    // The panel geometry brings its own layer names - cut lines, bend lines,
+    // whatever the part was drawn with. They are declared here so the file
+    // opens with them intact rather than collapsed onto layer 0.
+    ...extraLayers.flatMap((n) => layer(n, 7)),
     '0',
     'ENDTAB',
     '0',
     'ENDSEC',
   ];
+}
+
+// ----------------------------------------------------- panel geometry ------
+//
+// DXF_BUILDER.md always said the cut and bend layers "live in the separate
+// panel-geometry DXFs and are merged by a later stage". This is that stage:
+// the flat pattern of the real part - its outer profile, its interior
+// cutouts, its bend lines - carried into the same file as the perforation,
+// instead of a 600 x 1200 rectangle standing in for a panel that actually has
+// returns and notches.
+//
+// The file is read, not trusted. Only the entity types R12 can express are
+// carried over, and whatever is left is COUNTED AND REPORTED rather than
+// dropped quietly: a cut file silently missing a profile is the one failure
+// this must not have.
+
+/** (code, value) pairs, which is all a DXF is. */
+function dxfPairs(text) {
+  const t = String(text).split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i + 1 < t.length; i += 2) out.push([t[i].trim(), t[i + 1]]);
+  return out;
+}
+
+/**
+ * Entities from a panel-geometry DXF, in a normal form the writer below can
+ * emit. LWPOLYLINE is folded into POLYLINE because R12 has no LWPOLYLINE, and
+ * an old POLYLINE / VERTEX / SEQEND run is regrouped into one entity. Bulges
+ * ride along on the vertex, so an arc inside a profile survives the trip.
+ */
+export function parsePanelGeo(text) {
+  const p = dxfPairs(text);
+  const out = [];
+  const skipped = {};
+  const layers = new Set();
+  const num = (v) => Number(v);
+  let sec = null;
+  let i = 0;
+  while (i < p.length) {
+    const [c, v] = p[i];
+    if (c === '0' && v === 'SECTION') {
+      sec = p[i + 1] && p[i + 1][0] === '2' ? p[i + 1][1] : null;
+      i += 2;
+      continue;
+    }
+    if (c === '0' && v === 'ENDSEC') {
+      sec = null;
+      i += 1;
+      continue;
+    }
+    if (sec !== 'ENTITIES' || c !== '0') {
+      i += 1;
+      continue;
+    }
+    const type = v;
+    const codes = [];
+    let j = i + 1;
+    for (; j < p.length && p[j][0] !== '0'; j++) codes.push(p[j]);
+    const get = (k) => {
+      const f = codes.find((e) => e[0] === k);
+      return f ? f[1] : undefined;
+    };
+    const layer = get('8') ?? '0';
+    if (type === 'LINE') {
+      layers.add(layer);
+      out.push({
+        kind: 'line',
+        layer,
+        x1: num(get('10')),
+        y1: num(get('20')),
+        x2: num(get('11')),
+        y2: num(get('21')),
+      });
+      i = j;
+    } else if (type === 'CIRCLE') {
+      layers.add(layer);
+      out.push({ kind: 'circle', layer, cx: num(get('10')), cy: num(get('20')), r: num(get('40')) });
+      i = j;
+    } else if (type === 'ARC') {
+      layers.add(layer);
+      out.push({
+        kind: 'arc',
+        layer,
+        cx: num(get('10')),
+        cy: num(get('20')),
+        r: num(get('40')),
+        a1: num(get('50')),
+        a2: num(get('51')),
+      });
+      i = j;
+    } else if (type === 'LWPOLYLINE') {
+      layers.add(layer);
+      // 10 / 20 alternate per vertex; a 42 belongs to the vertex it follows.
+      const verts = [];
+      let vx = null;
+      for (const [cc, vv] of codes) {
+        if (cc === '10') {
+          if (vx) verts.push(vx);
+          vx = [num(vv), 0, 0];
+        } else if (cc === '20' && vx) vx[1] = num(vv);
+        else if (cc === '42' && vx) vx[2] = num(vv);
+      }
+      if (vx) verts.push(vx);
+      out.push({ kind: 'poly', layer, verts, closed: (Number(get('70')) | 0) & 1 });
+      i = j;
+    } else if (type === 'POLYLINE') {
+      layers.add(layer);
+      const closed = (Number(get('70')) | 0) & 1;
+      const verts = [];
+      let k = j;
+      while (k < p.length && p[k][0] === '0' && p[k][1] === 'VERTEX') {
+        const vc = [];
+        let m = k + 1;
+        for (; m < p.length && p[m][0] !== '0'; m++) vc.push(p[m]);
+        const vg = (kk) => {
+          const f = vc.find((e) => e[0] === kk);
+          return f ? num(f[1]) : 0;
+        };
+        verts.push([vg('10'), vg('20'), vg('42')]);
+        k = m;
+      }
+      if (k < p.length && p[k][0] === '0' && p[k][1] === 'SEQEND') {
+        let m = k + 1;
+        for (; m < p.length && p[m][0] !== '0'; m++);
+        k = m;
+      }
+      out.push({ kind: 'poly', layer, verts, closed });
+      i = k;
+    } else {
+      // Anything R12 cannot hold: SPLINE, ELLIPSE, INSERT, HATCH, 3D solids.
+      if (type !== 'SEQEND' && type !== 'VERTEX') skipped[type] = (skipped[type] ?? 0) + 1;
+      i = j;
+    }
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const see = (x, y) => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
+  for (const e of out) {
+    if (e.kind === 'line') {
+      see(e.x1, e.y1);
+      see(e.x2, e.y2);
+    } else if (e.kind === 'poly') {
+      for (const vv of e.verts) see(vv[0], vv[1]);
+    } else {
+      see(e.cx - e.r, e.cy - e.r);
+      see(e.cx + e.r, e.cy + e.r);
+    }
+  }
+  return {
+    entities: out,
+    layers: [...layers],
+    skipped,
+    bbox: out.length ? { minX, minY, maxX, maxY } : null,
+  };
+}
+
+/**
+ * Where the geometry's own origin lands inside the panel's box.
+ *   'origin' - as drawn, which is what a file prepared on the module's own
+ *              frame needs, and the only one that cannot silently disguise a
+ *              file drawn at the wrong scale.
+ *   'bbox'   - its bounding box's lower-left onto the panel's lower-left.
+ *   'center' - its bounding box centred on the panel.
+ * `dx` / `dy` shift it further, in mm, after whichever applied.
+ */
+export function panelGeoOffset(geo, align = 'origin', dx = 0, dy = 0) {
+  const b = geo.bbox;
+  if (!b || align === 'origin') return { ox: dx, oy: dy };
+  if (align === 'bbox') return { ox: dx - b.minX, oy: dy - b.minY };
+  return {
+    ox: dx + (PANEL.moduleW - (b.maxX - b.minX)) / 2 - b.minX,
+    oy: dy + (PANEL.moduleH - (b.maxY - b.minY)) / 2 - b.minY,
+  };
+}
+
+/** One panel's worth of that geometry, translated, as R12 entity codes. */
+function panelGeoCodes(geo, ox, oy) {
+  const out = [];
+  for (const e of geo.entities) {
+    if (e.kind === 'line') {
+      out.push(
+        '0', 'LINE', '8', e.layer,
+        '10', f3(e.x1 + ox), '20', f3(e.y1 + oy), '30', '0.0',
+        '11', f3(e.x2 + ox), '21', f3(e.y2 + oy), '31', '0.0'
+      );
+    } else if (e.kind === 'circle') {
+      out.push(
+        '0', 'CIRCLE', '8', e.layer,
+        '10', f3(e.cx + ox), '20', f3(e.cy + oy), '30', '0.0',
+        '40', f3(e.r)
+      );
+    } else if (e.kind === 'arc') {
+      out.push(
+        '0', 'ARC', '8', e.layer,
+        '10', f3(e.cx + ox), '20', f3(e.cy + oy), '30', '0.0',
+        '40', f3(e.r), '50', f3(e.a1), '51', f3(e.a2)
+      );
+    } else {
+      out.push('0', 'POLYLINE', '8', e.layer, '66', '1', '70', e.closed ? '1' : '0',
+        '10', '0.0', '20', '0.0', '30', '0.0');
+      for (const vv of e.verts) {
+        out.push('0', 'VERTEX', '8', e.layer,
+          '10', f3(vv[0] + ox), '20', f3(vv[1] + oy), '30', '0.0');
+        if (vv[2]) out.push('42', f3(vv[2]));
+      }
+      out.push('0', 'SEQEND', '8', e.layer);
+    }
+  }
+  return out;
 }
 
 function polyline(layer, verts, colorInt) {
@@ -201,6 +423,10 @@ export function toDXF(field, meta = {}) {
   const ral = meta.ral || { code: '9016', name: 'Traffic White', hex: '#F1F0EA' };
   const backer = meta.backer || 'aSoft None';
   const colorInt = hexToColorInt(ral.hex);
+  // The real part, if one was supplied, under the perforation.
+  const pg = meta.panelGeo;
+  const geo = pg && pg.dxf ? parsePanelGeo(pg.dxf) : null;
+  const geoOff = geo ? panelGeoOffset(geo, pg.align, pg.dx ?? 0, pg.dy ?? 0) : null;
 
   const { cols, rows } = field.params;
   const PW = PANEL.moduleW;
@@ -212,14 +438,19 @@ export function toDXF(field, meta = {}) {
   for (const pn of field.panels) {
     const bx = pn.col * SX;
     const by = (rows - 1 - pn.row) * SY;
-    ents.push(
-      ...polyline('Panel_Boundary', [
-        [bx, by],
-        [bx + PW, by],
-        [bx + PW, by + PH],
-        [bx, by + PH],
-      ])
-    );
+    // The boundary rectangle is a reference, not a cutter, so it stays even
+    // when real geometry is present - unless told to stand down, which is what
+    // a file that already draws its own outline wants.
+    if (!geo || pg.keepBoundary !== false)
+      ents.push(
+        ...polyline('Panel_Boundary', [
+          [bx, by],
+          [bx + PW, by],
+          [bx + PW, by + PH],
+          [bx, by + PH],
+        ])
+      );
+    if (geo) ents.push(...panelGeoCodes(geo, bx + geoOff.ox, by + geoOff.oy));
     const label = `${colLetter(pn.col)}${rows - pn.row}  |  RAL ${ral.code} ${ral.name}  |  ${backer}`;
     const tx = bx + PW / 2;
     const ty = by + PH / 2;
@@ -299,7 +530,7 @@ export function toDXF(field, meta = {}) {
   const maxY = (rows - 1) * SY + PH;
   const lines = [
     ...dxfHeader(maxX, maxY),
-    ...dxfTables(),
+    ...dxfTables(geo ? geo.layers.filter((n) => !STD_LAYERS.has(n)) : []),
     '0',
     'SECTION',
     '2',

@@ -155,6 +155,9 @@ const html = `<!doctype html>
     </span>
     <span id="stats"></span>
     <span style="margin-left:auto;display:flex;gap:7px">
+      <label class="importbtn" title="Panel geometry DXF laid under the perforation on every panel. Session only - it is a production input, not part of the pattern recipe, so it is deliberately not saved into a design.">panel geo<input id="btnPanelGeo" type="file" accept=".dxf,application/dxf" hidden></label>
+      <select id="geoAlign" title="Where the geometry's own origin lands inside the 600 x 1200 panel box."><option value="origin">as drawn</option><option value="bbox">bbox to corner</option><option value="center">centred</option></select>
+      <span id="geoInfo" class="storewhere"></span>
       <button id="x-svg">svg</button>
       <button id="x-dxf">dxf</button>
       <button id="x-json">payload</button>

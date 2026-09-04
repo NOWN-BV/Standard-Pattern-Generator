@@ -8,7 +8,7 @@
 // VeilStandardPatternGenerator.jsx. Keep the two in rough feature parity but do
 // not port geometry into here - geometry lives in pattern-core.js only.
 
-/* global resolvePitch, buildField, DEFAULTS, LIMITS, PANEL, LATTICES, MODULATIONS, WAVE_SHAPES, SHAPES, aliasAudit, aliasFix, PRESETS, svgPath, toSVG, toDXF, toRecipe, toPayload, download */
+/* global resolvePitch, buildField, DEFAULTS, LIMITS, PANEL, LATTICES, MODULATIONS, WAVE_SHAPES, SHAPES, aliasAudit, aliasFix, PRESETS, svgPath, toSVG, toDXF, toRecipe, toPayload, download, parsePanelGeo */
 
 const state = {
   ...DEFAULTS,
@@ -2036,8 +2036,67 @@ function wireExports() {
   };
   document.getElementById('x-svg').onclick = () =>
     download(`${stem()}.svg`, toSVG(current), 'image/svg+xml');
+  // PANEL GEOMETRY, HELD FOR THE SESSION ONLY.
+  //
+  // Not in `state`, which is what a saved design is made of: the same part
+  // geometry applies to every design, so storing it there would copy the whole
+  // DXF into all hundred-odd of them. It is a production input, not a recipe.
+  let panelGeoDxf = null;
+  let panelGeoName = '';
+  const geoInfo = document.getElementById('geoInfo');
+  const geoAlign = document.getElementById('geoAlign');
+  const geoInput = document.getElementById('btnPanelGeo');
+  const showGeo = (msg) => {
+    if (geoInfo) geoInfo.textContent = msg;
+  };
+  if (geoInput)
+    geoInput.addEventListener('change', () => {
+      const file = geoInput.files && geoInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        panelGeoDxf = String(reader.result);
+        panelGeoName = file.name;
+        let g;
+        try {
+          g = parsePanelGeo(panelGeoDxf);
+        } catch {
+          panelGeoDxf = null;
+          showGeo('unreadable dxf');
+          return;
+        }
+        if (!g.entities.length) {
+          panelGeoDxf = null;
+          showGeo('no usable entities');
+          return;
+        }
+        const b = g.bbox;
+        // Say what was dropped. R12 has no SPLINE or ELLIPSE, and a profile
+        // that quietly went missing is worse than one that never loaded.
+        const lost = Object.entries(g.skipped)
+          .map(([k, n]) => k + ' x' + n)
+          .join(', ');
+        showGeo(
+          panelGeoName +
+            ' - ' +
+            g.entities.length +
+            ' ents, ' +
+            Math.round(b.maxX - b.minX) +
+            ' x ' +
+            Math.round(b.maxY - b.minY) +
+            'mm, layers: ' +
+            g.layers.join(' ') +
+            (lost ? '  DROPPED: ' + lost : '')
+        );
+      };
+      reader.readAsText(file);
+    });
+  const dxfMeta = () =>
+    panelGeoDxf
+      ? { panelGeo: { dxf: panelGeoDxf, align: geoAlign ? geoAlign.value : 'origin' } }
+      : {};
   document.getElementById('x-dxf').onclick = () =>
-    download(`${stem()}.dxf`, toDXF(current, {}), 'application/dxf');
+    download(`${stem()}.dxf`, toDXF(current, dxfMeta()), 'application/dxf');
   document.getElementById('x-json').onclick = () =>
     download(
       `${stem()}.payload.json`,

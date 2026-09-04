@@ -51,6 +51,27 @@ engine uses:
 The footer reports holes, open area %, diameter range, shrunk count and
 dropped count, so every rule that fired is visible rather than silent.
 
+## Panel geometry in the DXF
+
+`DXF_BUILDER.md` always said the cut and bend layers "live in the separate
+panel-geometry DXFs and are merged by a later stage". The **panel geo** button
+next to the export buttons is that stage: pick a flat-pattern DXF of the real
+part and it is laid under the perforation on every panel, so one file carries
+both instead of a 600x1200 rectangle standing in for a panel that actually has
+returns and notches.
+
+- Source layer names are kept (`OUTER_PROFILES`, `BEND`, whatever the part was
+  drawn with) and declared in the output, not collapsed onto layer `0`.
+- Output stays R12, so `LWPOLYLINE` is folded into `POLYLINE` and bulges ride
+  along on the vertex. What R12 cannot hold - `SPLINE`, `ELLIPSE`, `INSERT`,
+  `HATCH` - is **counted and shown next to the file name**, never dropped
+  silently: a cut file quietly missing a profile is scrap metal.
+- Alignment picks where the file own origin lands in the panel box: as drawn
+  (for a file prepared on the module frame), bbox to corner, or centred.
+- Held for the session only. The same part applies to every design, so storing
+  it in a design would copy the DXF into all hundred-odd of them - it is a
+  production input, not part of the pattern recipe.
+
 ## Files
 
 | File                                  | Lines | Role                                                         |

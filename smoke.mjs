@@ -11,7 +11,14 @@
 import assert from 'node:assert/strict';
 import { buildField, LIMITS, PANEL } from './pattern-core.js';
 import { PRESETS } from './presets.js';
-import { toDXF, panelHoles, toSVG, toPayload, toRecipe } from './exporters.js';
+import {
+  toDXF,
+  panelHoles,
+  toSVG,
+  toPayload,
+  toRecipe,
+  parsePanelGeo,
+} from './exporters.js';
 
 const key = (h) => `${h.panelCol}:${h.cx.toFixed(6)},${h.cy.toFixed(6)},${h.r.toFixed(6)}`;
 
@@ -221,4 +228,63 @@ console.log('all smoke checks passed');
     assert.ok(f.stats.tilesInterchangeable, `boundaries must match for: ${label}`);
   }
   console.log('P4 tiles differ with matching edges across', COMBOS.length, 'combinations');
+}
+
+// -- panel geometry merge ---------------------------------------------------
+//
+// The merge has to do three things or it is worse than not existing: carry
+// every entity onto every panel, keep the source layer names, and emit only
+// what R12 can hold. A dropped profile in a cut file is scrap metal.
+{
+  const geoDxf = [
+    '0', 'SECTION', '2', 'ENTITIES',
+    '0', 'LINE', '8', 'BEND', '10', '0.0', '20', '20.0', '30', '0.0',
+    '11', '600.0', '21', '20.0', '31', '0.0',
+    '0', 'LWPOLYLINE', '8', 'OUTER_PROFILES', '70', '1',
+    '10', '0.0', '20', '0.0', '10', '600.0', '20', '0.0',
+    '10', '600.0', '20', '1200.0', '10', '0.0', '20', '1200.0',
+    '0', 'CIRCLE', '8', 'FIXINGS', '10', '50.0', '20', '50.0', '30', '0.0', '40', '4.0',
+    '0', 'SPLINE', '8', 'IGNORED',
+    '0', 'ENDSEC', '0', 'EOF',
+  ].join('\r\n');
+
+  const geo = parsePanelGeo(geoDxf);
+  assert.equal(geo.entities.length, 3, 'line + polyline + circle should parse');
+  assert.deepEqual(geo.layers, ['BEND', 'OUTER_PROFILES', 'FIXINGS']);
+  assert.equal(geo.skipped.SPLINE, 1, 'a SPLINE has no R12 form and must be REPORTED');
+  assert.deepEqual(geo.bbox, { minX: 0, minY: 0, maxX: 600, maxY: 1200 });
+
+  const cols = 3;
+  const rows = 2;
+  const field = buildField({ cols, rows });
+  const plain = toDXF(field, {});
+  const merged = toDXF(field, { panelGeo: { dxf: geoDxf, align: 'origin' } });
+  const n = (s, t) => (s.match(new RegExp('^' + t + '$', 'gm')) || []).length;
+
+  // once per panel, not once per file
+  assert.equal(n(merged, 'LINE') - n(plain, 'LINE'), cols * rows, 'one bend line per panel');
+  assert.equal(n(merged, 'CIRCLE') - n(plain, 'CIRCLE'), cols * rows, 'one fixing per panel');
+  assert.equal(
+    n(merged, 'POLYLINE') - n(plain, 'POLYLINE'),
+    cols * rows,
+    'one profile per panel'
+  );
+  // R12 has no LWPOLYLINE; it must have been folded into POLYLINE
+  assert.ok(!merged.includes('LWPOLYLINE'), 'R12 output must not contain LWPOLYLINE');
+  for (const layer of ['BEND', 'OUTER_PROFILES', 'FIXINGS'])
+    assert.ok(
+      merged.includes('\r\n' + layer + '\r\n'),
+      `source layer ${layer} must be declared, not collapsed onto 0`
+    );
+  // the boundary rectangle can stand down for a file that draws its own
+  const noBox = toDXF(field, { panelGeo: { dxf: geoDxf, keepBoundary: false } });
+  assert.equal(n(noBox, 'POLYLINE'), n(merged, 'POLYLINE') - cols * rows);
+  // and nothing changes when no geometry is supplied
+  assert.equal(plain, toDXF(field, {}), 'export without geometry must be unchanged');
+
+  console.log(
+    'panel geometry merges onto',
+    cols * rows,
+    'panels, layers kept, SPLINE reported not swallowed'
+  );
 }
