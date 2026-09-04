@@ -1402,8 +1402,17 @@ function render() {
   const edge = document.getElementById('edge');
   if (edge) {
     const ok = s.tilesInterchangeable;
-    edge.className = ok ? 'edge ok' : 'edge warn';
-    edge.textContent = ok
+    // A TRANSITION IS MEANT TO HAVE TWO DIFFERENT EDGES.
+    //
+    // The ramp starts at one diameter and ends at another, so of course its two
+    // edges differ - that is the panel's entire purpose. Telling someone to
+    // pick a different driver here would be telling them to stop building the
+    // thing they are building.
+    const ramp = state.modulation === 'ramp';
+    edge.className = ok || ramp ? 'edge ok' : 'edge warn';
+    edge.textContent = ramp
+      ? 'Transition panel: the two ends are DIFFERENT by design, so it does not tile with itself. It goes once between the two standard panels whose sizes it runs between - check those edges match, not this one.'
+      : ok
       ? 'Boundaries identical - every joint carries the same edge, so tiles can be laid in any order (AB, BA, AABB ...).'
       : 'Boundaries alternate - each joint matches its own two sides, so the field is continuous, but ' +
         (s.edgeMatchX ? '' : 'the left and right panel edges differ') +

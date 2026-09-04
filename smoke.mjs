@@ -464,3 +464,43 @@ console.log('all smoke checks passed');
 
   console.log('transition panel ends match the standard panels either side, hole for hole');
 }
+
+// -- a ramp is never wrapped ------------------------------------------------
+//
+// Every other driver is a pattern, and a pattern under P1/P4 has to meet itself
+// at the joint, which is what wrapping the sample enforces. A ramp is a
+// transition: it runs from one diameter to another and never butts against a
+// copy of itself. Wrapping it put the first row's small holes along the bottom
+// edge - the very seam the mode exists to remove - so the tiling must not
+// reach it.
+{
+  const T = {
+    cols: 1, rows: 1, lattice: 'hex', pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 25, modulation: 'ramp', modAngle: 90, modScope: 'run',
+    gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, taper: 0,
+  };
+  for (const tiling of ['WALL', 'P1', 'P4']) {
+    for (const [cols, rows] of [[1, 1], [2, 2]]) {
+      const f = buildField({ ...T, tiling, cols, rows });
+      const ys = [...new Set(f.holes.map((h) => +h.cy.toFixed(4)))].sort((a, b) => a - b);
+      const at = (y) => [
+        ...new Set(f.holes.filter((h) => Math.abs(h.cy - y) < 1e-6).map((h) => +(2 * h.r).toFixed(4))),
+      ];
+      const top = at(ys[0]);
+      const bot = at(ys[ys.length - 1]);
+      const where = `${tiling} ${cols}x${rows}`;
+      assert.deepEqual(top, [12.5], `${where}: top row must be the fine diameter`);
+      assert.deepEqual(bot, [25], `${where}: bottom row must be the coarse diameter, not wrapped`);
+      // and no row may be split - a wrapped sample shows up as two sizes in one row
+      const rowsMap = new Map();
+      for (const h of f.holes) {
+        const k = +h.cy.toFixed(4);
+        if (!rowsMap.has(k)) rowsMap.set(k, new Set());
+        rowsMap.get(k).add(+(2 * h.r).toFixed(4));
+      }
+      for (const [y, set] of rowsMap)
+        assert.equal(set.size, 1, `${where}: row at y=${y} carries ${set.size} different diameters`);
+    }
+  }
+  console.log('a ramp reaches both end diameters under WALL, P1 and P4 alike');
+}

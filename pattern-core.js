@@ -2501,7 +2501,19 @@ export function buildField(params) {
               const b = imageBox(p, f);
               return b.wrap ? { x: wrapSeam(x, b.w), y: wrapSeam(y, b.h) } : { x, y };
             })()
-          : // WALL LAYS THE DESIGN DOWN ONCE. THERE IS NOTHING TO WRAP IT ON.
+          : // A RAMP IS NOT PERIODIC, SO IT IS NEVER WRAPPED.
+            //
+            // Every other driver is a pattern, and a pattern under P1/P4 has to
+            // meet itself at the joint - which is what the wrap enforces. A ramp
+            // is a TRANSITION: it starts at one diameter and ends at another, and
+            // a panel like that never butts against a copy of itself, it sits
+            // once between two standard panels. Wrapping it sent the last row
+            // back to the first row's diameter, which put a row of the small
+            // holes along the bottom edge - the exact seam this mode exists to
+            // remove. The tiling setting simply does not apply to it.
+            p.modulation === 'ramp'
+            ? { x, y }
+            : // WALL LAYS THE DESIGN DOWN ONCE. THERE IS NOTHING TO WRAP IT ON.
             //
             // wrapSeam snaps a coordinate within a micron of EITHER end onto 0,
             // because on a repeating tile those are the same point. Under WALL

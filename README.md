@@ -68,6 +68,13 @@ Saved: `Transition 12.5-25`, its `flip`, and `across`. All on hex pitch 50, the
 same lattice as `Basic-50-12` / `Basic-50-25`, so the ends match those panels
 hole for hole - which `smoke.mjs` asserts rather than assumes.
 
+A ramp is never wrapped on the tiling. Every other driver is a pattern, and
+a pattern under P1/P4 has to meet itself at the joint - which is what wrapping
+the sample enforces. A ramp is a transition: it runs from one diameter to
+another and never butts against a copy of itself, so the tiling setting does
+not apply to it. Wrapping it used to put the first row of small holes along
+the bottom edge, which is the exact seam this mode exists to remove.
+
 If the pitch cannot carry the diameter asked for, the holes are cut smaller -
 a negative web is not an option - and the preview says so in the warning bar.
 It is not left to be noticed.
