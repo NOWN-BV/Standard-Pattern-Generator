@@ -51,6 +51,22 @@ engine uses:
 The footer reports holes, open area %, diameter range, shrunk count and
 dropped count, so every rule that fired is visible rather than silent.
 
+## The size a design states is the size it cuts
+
+`sizeContrast` re-ranks hole sizes onto a uniform rank. Ties have to share a
+rank - two holes sampling the same point must get the same verdict or opposite
+panel edges stop matching - but ranking each tie group by its FIRST index over
+n can never reach 1: the last group starts at n minus its own size. So with
+contrast at 100 the largest holes always fell short. `Basic-50-1225` asked for
+25mm and cut 24.55; 43 of the saved designs were affected. Dividing by where
+the last group starts fixes it, ties intact.
+
+`stats.diaLow` / `diaHigh` / `diaShort` now report what was actually cut
+against what was asked for, and the preview says so in the warning bar. A ramp
+whose span is longer than the panel, a driver that never reaches its own
+extreme, a pitch that refuses the diameter - all of them show up there instead
+of in a DXF.
+
 ## Transition panels
 
 A transition panel is specified by its ENDS: it butts against a standard panel

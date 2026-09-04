@@ -1426,6 +1426,16 @@ function render() {
     warn.textContent =
       `Nothing is cut: all ${s.dropped} candidates fall under the ${LIMITS.minPerfArea}mm2 minimum ` +
       `perforation area. There is no edge keep-out - holes may straddle a joint.`;
+  } else if (s.diaShort && state.minDia !== state.maxDia) {
+    // The design states a size range; the field did not deliver it. Usually a
+    // ramp spanning further than the panel, or a driver that never reaches its
+    // own extreme.
+    warn.style.display = 'block';
+    warn.textContent =
+      `Cut ${s.diaLow}-${s.diaHigh}mm, not the ${s.diaWant[0]}-${s.diaWant[1]}mm asked for. ` +
+      `A ramp whose span is longer than the panel only gets part way (check span mm against the ` +
+      `panel, or use 'across the run'); noise and radial drivers reach their extremes only where ` +
+      `the field happens to peak. On a transition panel the end sizes are the specification.`;
   } else if (s.diaClamped) {
     // The size asked for was not the size delivered. On a transition panel
     // that is the whole specification, so it cannot be left to be noticed.

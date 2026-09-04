@@ -9,7 +9,7 @@
 //      MIN_PERF_AREA, or inside the edge keep-out.
 
 import assert from 'node:assert/strict';
-import { buildField, LIMITS, PANEL } from './pattern-core.js';
+import { buildField, LIMITS, PANEL, quantileRank } from './pattern-core.js';
 import { PRESETS } from './presets.js';
 import {
   toDXF,
@@ -503,4 +503,49 @@ console.log('all smoke checks passed');
     }
   }
   console.log('a ramp reaches both end diameters under WALL, P1 and P4 alike');
+}
+
+// -- the size asked for is the size cut -------------------------------------
+//
+// Ranking a tie group by its first index over n cannot reach 1: the last group
+// starts at n minus its own size. With contrast at 100 the largest holes
+// therefore fell short of max dia - Basic-50-1225 asked for 25mm and cut
+// 24.55 - across 43 of the saved designs, silently.
+{
+  // twenty values in four tie groups of five
+  const vals = [];
+  for (let g = 0; g < 4; g++) for (let k = 0; k < 5; k++) vals.push(g);
+  const r = quantileRank(vals);
+  assert.equal(Math.min(...r), 0, 'the smallest value must rank 0');
+  assert.equal(Math.max(...r), 1, 'the largest value must rank 1');
+  // ties still share, which is what keeps two panel edges agreeing
+  for (let g = 0; g < 4; g++) {
+    const seen = new Set();
+    for (let k = 0; k < 5; k++) seen.add(r[g * 5 + k]);
+    assert.equal(seen.size, 1, `tie group ${g} must share one rank`);
+  }
+  assert.ok(r[0] < r[5] && r[5] < r[10] && r[10] < r[15], 'and stay monotonic');
+
+  // end to end: a contrast-100 gradient must reach both stated diameters
+  const f = buildField({
+    cols: 1, rows: 1, tiling: 'WALL', lattice: 'hex', pitch: 50, shape: 'circle',
+    minDia: 12, maxDia: 25, modulation: 'linear', modAngle: 90, modScope: 'run',
+    sizeContrast: 100, gamma: 1, sizeLevels: 1, cull: 0, taper: 0,
+  });
+  const ds = f.holes.map((h) => 2 * h.r);
+  assert.ok(Math.abs(Math.max(...ds) - 25) < 1e-6, 'contrast must still reach max dia');
+  assert.ok(Math.abs(Math.min(...ds) - 12) < 1e-6, 'and min dia');
+  assert.equal(f.stats.diaShort, false, 'and must not report itself short');
+
+  // and a ramp spanning twice the panel really is short - the report has to
+  // fire, or the next one of these goes out in a DXF unnoticed
+  const half = buildField({
+    cols: 1, rows: 1, tiling: 'WALL', lattice: 'hex', pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 25, modulation: 'ramp', modAngle: 90,
+    modScope: 'locked', spanMm: 2400, sizeContrast: 0, gamma: 1, sizeLevels: 1, cull: 0, taper: 0,
+  });
+  assert.equal(half.stats.diaShort, true, 'a ramp longer than the panel must be reported short');
+  assert.ok(half.stats.diaHigh < 25);
+
+  console.log('sizes reach both stated diameters, and a short field says so');
 }

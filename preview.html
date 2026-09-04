@@ -1076,11 +1076,28 @@ function quantileRank(values) {
   // the threshold, or take different fade scaling, and the boundaries stop
   // matching. Assigning each run of equal values the rank of its first member
   // makes the mapping a true function of the value.
+  // AND THE TOP GROUP MUST REACH 1.
+  //
+  // Ranking a tie group by its first index over n cannot: the last group starts
+  // at n minus its own size, so it lands short by exactly that group's share of
+  // the field. With contrast at 100 the largest holes therefore never reached
+  // max dia - 43 of the saved designs were affected, including the standard
+  // ones, so Basic-50-1225 asked for 25mm and cut 24.55. Dividing by where the
+  // LAST group starts puts the smallest value at 0 and the largest at 1 while
+  // ties still share a rank, which is the property the note above is about.
+  let lastStart = 0;
+  for (let a = 0; a < n; ) {
+    let b = a;
+    while (b + 1 < n && values[idx[b + 1]] === values[idx[a]]) b++;
+    lastStart = a;
+    a = b + 1;
+  }
+  const denom = lastStart > 0 ? lastStart : 1;
   let i = 0;
   while (i < n) {
     let j = i;
     while (j + 1 < n && values[idx[j + 1]] === values[idx[i]]) j++;
-    const r = n <= 1 ? 0 : i / n;
+    const r = n <= 1 ? 0 : Math.min(1, i / denom);
     for (let k = i; k <= j; k++) out[idx[k]] = r;
     i = j + 1;
   }
@@ -3475,6 +3492,31 @@ function buildField(params) {
     stats.perPanel[c.label] = (stats.perPanel[c.label] || 0) + 1;
   }
   stats.cullFellBack = cullFellBack;
+  // WHAT WAS ACTUALLY CUT, AGAINST WHAT WAS ASKED FOR.
+  //
+  // The size a design states and the size it delivers had drifted apart in
+  // several independent ways at once - the pitch capping it, a ramp spanning
+  // further than the panel, a rank that never reached the top - and none of
+  // them said anything. Reporting the delivered range catches all of them and
+  // any future one: if a design says 25mm and cuts 24.5, that is now on screen
+  // rather than discovered in a DXF.
+  if (holes.length) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const h of holes) {
+      const d = 2 * h.r;
+      if (d < lo) lo = d;
+      if (d > hi) hi = d;
+    }
+    stats.diaLow = +lo.toFixed(3);
+    stats.diaHigh = +hi.toFixed(3);
+    // Judged against what the lattice could carry, not the raw request: a
+    // diameter the pitch refuses is already reported separately as diaClamped.
+    const wantHigh = Math.min(p.maxDia, diaCap);
+    const wantLow = Math.max(Math.min(p.minDia, p.maxDia), LIMITS.minDia);
+    stats.diaShort = hi < wantHigh - 0.01 || lo > wantLow + 0.01;
+    stats.diaWant = [+wantLow.toFixed(3), +wantHigh.toFixed(3)];
+  }
 
   // -- ARE THE TILE BOUNDARIES INTERCHANGEABLE? -----------------------------
   //
@@ -6228,6 +6270,16 @@ function render() {
     warn.textContent =
       `Nothing is cut: all ${s.dropped} candidates fall under the ${LIMITS.minPerfArea}mm2 minimum ` +
       `perforation area. There is no edge keep-out - holes may straddle a joint.`;
+  } else if (s.diaShort && state.minDia !== state.maxDia) {
+    // The design states a size range; the field did not deliver it. Usually a
+    // ramp spanning further than the panel, or a driver that never reaches its
+    // own extreme.
+    warn.style.display = 'block';
+    warn.textContent =
+      `Cut ${s.diaLow}-${s.diaHigh}mm, not the ${s.diaWant[0]}-${s.diaWant[1]}mm asked for. ` +
+      `A ramp whose span is longer than the panel only gets part way (check span mm against the ` +
+      `panel, or use 'across the run'); noise and radial drivers reach their extremes only where ` +
+      `the field happens to peak. On a transition panel the end sizes are the specification.`;
   } else if (s.diaClamped) {
     // The size asked for was not the size delivered. On a transition panel
     // that is the whole specification, so it cannot be left to be noticed.
