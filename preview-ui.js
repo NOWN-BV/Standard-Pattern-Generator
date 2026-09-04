@@ -489,6 +489,12 @@ const SPEC = [
     when: (s) => (USES[s.modulation] || []).includes('crossSharp'),
   },
   {
+    key: 'rampCorner',
+    kind: 'toggle',
+    label: 'turn the corner',
+    when: (st) => st.modulation === 'ramp',
+  },
+  {
     key: 'sizeLevels',
     kind: 'range',
     label: 'size levels',
@@ -1601,7 +1607,9 @@ const TIPS = {
     'How the two crossing wave families combine. At 100% the stronger of the two wins, giving crisp continuous bands with bright intersections - the argyle look. Lower blends them, so the bands soften and only their crossings stay bright.',
   modulation:
     'What drives hole size across the panel. Uniform: every hole the same. Linear: a straight ramp. RAMP: the one for a TRANSITION PANEL - it counts the lattice’s own rows instead of measuring millimetres, so the first row is exactly min dia, the last exactly max dia, and every row between is an equal step. Linear gets near the ends but lands on whatever each row position gives, and stumbles on one row whenever the span is not a whole number of rows - which shows at the joint on a panel whose whole job is to meet the standard panel beside it. Radial: grows from a centre point. Wave: one family of diagonal stripes. Lattice: two crossing families, giving a diamond grid of large holes. Chevron: the same two families multiplied, so only their crossings open up. Bands / noise / checker: stepped, organic and chequered variation.',
-  modAngle: 'Direction the ramp runs. 0 = left to right, 90 = top to bottom.',
+  modAngle: 'Direction the ramp runs. 0 = left to right, 90 = top to bottom, and the diagonals in between. With TURN THE CORNER on, 45 / 135 / 225 / 315 pick which corner the fine end sits in.',
+  rampCorner:
+    'Grades away from one CORNER in an L instead of straight across, which is what joins a run grading left to right to one grading top to bottom. Its top edge is exactly the across ramp and its left edge exactly the down ramp, so an across panel sits above it and a down panel beside it. modAngle picks the corner.',
   sizeLevels:
     'Cuts the driver into steps before it sets the hole size, so a hole is one of a few sizes rather than anywhere on the ramp. Two gives a hard edge between big holes and small ones - a block instead of a fade. 1 leaves it continuous.',
   sizeSplit:

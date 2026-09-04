@@ -257,6 +257,12 @@ export const DEFAULTS = {
   // and the whole gradient then lives in the shape - a rhombus that shears
   // from a square standing on its corner down to a sliver, with its long
   // diagonal never moving. 0 is off, and every hole keeps slotRatio.
+  // Turns a ramp into a CORNER: the field grades away from one corner in an L
+  // rather than straight across. Its top edge is exactly the across ramp and
+  // its left edge exactly the down ramp, which is what lets a run that grades
+  // left to right meet one that grades top to bottom. modAngle picks the
+  // corner: 45 top-left, 135 top-right, 225 bottom-right, 315 bottom-left.
+  rampCorner: false,
   ratioMax: 0,
   // HOW THE SIDES BETWEEN THE TWO TIPS BEND.
   //
@@ -2044,7 +2050,6 @@ function modulate(x, y, p, f) {
       const sp = latticeSpacing(p);
       const c = Math.cos(a);
       const s = Math.sin(a);
-      const horiz = Math.abs(c) >= Math.abs(s);
       // THE STEP IS BETWEEN DISTINCT POSITIONS, NOT BETWEEN LATTICE CELLS.
       //
       // A staggered lattice offsets every other row by half a pitch, so along
@@ -2059,15 +2064,40 @@ function modulate(x, y, p, f) {
       const staggered = sp.offset && side > 0;
       const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
       const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
-      const step = horiz ? stepX : stepY;
-      const span = horiz ? nw : nh;
-      const pos = horiz ? x : y;
-      if (!(step > 0) || !(span > 0)) return 0.5;
-      // Intervals across the span, so both ends are rows and not a fraction.
-      const n = Math.max(1, Math.round(span / step));
-      const j = clamp(Math.round(pos / step), 0, n);
-      const t = j / n;
-      return (horiz ? c < 0 : s < 0) ? 1 - t : t;
+      if (!(stepX > 0) || !(stepY > 0) || !(nw > 0) || !(nh > 0)) return 0.5;
+      // BOTH AXES AT ONCE, SO A RUN CAN TURN A CORNER.
+      //
+      // Counting along whichever axis happened to dominate meant 45 degrees
+      // behaved exactly as 0: there was no diagonal, and a wall that graded
+      // left to right could not be joined to one grading top to bottom. Each
+      // axis is counted in its own rows and columns, then the two are mixed by
+      // how much the angle asks for. At 0 and 90 the other term drops out
+      // entirely, so the pure runs are bit-identical to what they were.
+      const nx = Math.max(1, Math.round(nw / stepX));
+      const ny = Math.max(1, Math.round(nh / stepY));
+      let u = clamp(Math.round(x / stepX), 0, nx) / nx;
+      let v = clamp(Math.round(y / stepY), 0, ny) / ny;
+      if (c < 0) u = 1 - u;
+      if (s < 0) v = 1 - v;
+      const wx = Math.abs(c);
+      const wy = Math.abs(s);
+      const wsum = wx + wy;
+      // THE CORNER: WHAT ACTUALLY JOINS AN X RUN TO A Y RUN.
+      //
+      // A straight ramp makes every column one size (running across) or every
+      // row one size (running down), so the two cannot butt together: the
+      // across panel presents a uniform column at its edge and the down panel
+      // presents a varying one. A diagonal does not fix that either - its edges
+      // vary too. Taking the LARGER of the two counts does: along the top edge
+      // v is 0 so t is u, which is exactly the across ramp, and along the left
+      // edge u is 0 so t is v, exactly the down ramp. The contours turn the
+      // corner in an L, and the panel hands off correctly to both runs.
+      // modAngle picks which corner is the fine end - 45 top-left, 135
+      // top-right, 225 bottom-right, 315 bottom-left.
+      if (p.rampCorner) return Math.max(u, v);
+      // The near corner is exactly 0 and the far corner exactly 1 whatever the
+      // angle, which is what keeps the ends meeting their neighbours.
+      return wsum <= 0 ? 0.5 : (u * wx + v * wy) / wsum;
     }
     case 'radial': {
       // INSCRIBED IN THE PERIOD, NOT MEASURED IN MILLIMETRES.

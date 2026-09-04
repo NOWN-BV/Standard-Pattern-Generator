@@ -593,3 +593,61 @@ console.log('all smoke checks passed');
   }
   console.log('the ramp runs cleanly along either axis on every lattice');
 }
+
+// -- the corner that joins an across run to a down run ----------------------
+//
+// A straight ramp makes every column one size running across, or every row one
+// size running down, so the two runs cannot butt together. Taking the larger of
+// the two counts turns the gradient through the corner: along the top edge the
+// down term is zero so it IS the across ramp, and along the left edge the
+// across term is zero so it IS the down ramp. That is the join, and it is
+// asserted hole for hole rather than eyeballed.
+{
+  const B = {
+    cols: 1, rows: 1, pitch: 50, lattice: 'hex', shape: 'circle',
+    minDia: 12.5, maxDia: 25, modulation: 'ramp', modScope: 'run',
+    gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, taper: 0, tiling: 'WALL',
+  };
+  const edge = (f, which) => {
+    const xs = [...new Set(f.holes.map((h) => +h.cx.toFixed(3)))].sort((a, b) => a - b);
+    const ys = [...new Set(f.holes.map((h) => +h.cy.toFixed(3)))].sort((a, b) => a - b);
+    const pick = {
+      top: (h) => Math.abs(h.cy - ys[0]) < 1e-6,
+      bottom: (h) => Math.abs(h.cy - ys[ys.length - 1]) < 1e-6,
+      left: (h) => Math.abs(h.cx - xs[0]) < 1e-6,
+      right: (h) => Math.abs(h.cx - xs[xs.length - 1]) < 1e-6,
+    }[which];
+    const key = which === 'top' || which === 'bottom' ? 'cx' : 'cy';
+    return f.holes.filter(pick).sort((a, b) => a[key] - b[key])
+      .map((h) => h[key].toFixed(3) + '@' + (2 * h.r).toFixed(4)).join('|');
+  };
+  const across = buildField({ ...B, modAngle: 0 });
+  const down = buildField({ ...B, modAngle: 90 });
+  const corner = buildField({ ...B, modAngle: 45, rampCorner: true });
+
+  assert.equal(edge(across, 'bottom'), edge(corner, 'top'), 'an across panel must sit above it');
+  assert.equal(edge(down, 'right'), edge(corner, 'left'), 'a down panel must sit beside it');
+  // the far edges are where the gradient has finished, so they are all max dia
+  for (const side of ['right', 'bottom'])
+    for (const part of edge(corner, side).split('|'))
+      assert.equal(part.split('@')[1], '25.0000', `corner ${side} edge must have finished`);
+
+  // a plain diagonal is NOT a corner - if these ever matched, one of the two
+  // is redundant and should go
+  const diag = buildField({ ...B, modAngle: 45 });
+  assert.notEqual(edge(diag, 'top'), edge(corner, 'top'));
+
+  // and the pure axes are untouched by either addition
+  for (const angle of [0, 90, 180, 270]) {
+    const a = buildField({ ...B, modAngle: angle });
+    const lines = new Map();
+    const key = angle % 180 === 0 ? 'cx' : 'cy';
+    for (const h of a.holes) {
+      const k = +h[key].toFixed(4);
+      if (!lines.has(k)) lines.set(k, new Set());
+      lines.get(k).add(+(2 * h.r).toFixed(4));
+    }
+    for (const [, set] of lines) assert.equal(set.size, 1, `@${angle} must stay a pure ramp`);
+  }
+  console.log('the corner hands off to an across run above it and a down run beside it');
+}

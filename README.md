@@ -86,6 +86,19 @@ offsets alternate rows by half a pitch, so along that axis the ramp steps every
 half pitch rather than every cell; counting whole cells there put two identical
 columns at each step.
 
+**Turn the corner** joins a run grading left to right to one grading top to
+bottom. A straight ramp cannot: across makes every column one size, down makes
+every row one size, so the two present different edges and will not butt. A
+diagonal does not help either - its edges vary too. Taking the larger of the
+two counts does: along the top edge the down term is zero so it IS the across
+ramp, along the left edge the across term is zero so it IS the down ramp. So an
+across panel sits above the corner and a down panel beside it. `modAngle` picks
+which corner holds the fine end - 45 top-left, 135 top-right, 225 bottom-right,
+315 bottom-left.
+
+Without the corner switch, angles between the axes now give a real diagonal.
+They used to snap to whichever axis dominated, so 45 behaved exactly as 0.
+
 Saved: `Transition 12.5-25`, its `flip`, and `across`. All on hex pitch 50, the
 same lattice as `Basic-50-12` / `Basic-50-25`, so the ends match those panels
 hole for hole - which `smoke.mjs` asserts rather than assumes.
