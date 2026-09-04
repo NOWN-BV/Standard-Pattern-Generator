@@ -2243,9 +2243,17 @@ function modulate(x, y, p, f) {
       // modAngle picks which corner is the fine end - 45 top-left, 135
       // top-right, 225 bottom-right, 315 bottom-left.
       if (p.rampCorner) return Math.max(u, v);
-      // The near corner is exactly 0 and the far corner exactly 1 whatever the
-      // angle, which is what keeps the ends meeting their neighbours.
-      return wsum <= 0 ? 0.5 : (u * wx + v * wy) / wsum;
+      // A RAMP RUNS ALONG ONE AXIS. THERE IS NO DIAGONAL HERE.
+      //
+      // Blending the two by angle was tried and removed. Measured, it was
+      // identical to 'linear' at every angle whenever the span is a whole
+      // number of rows - which it is by default - so it added nothing; and its
+      // four edges all vary, so it matched no edge of any panel in the set:
+      // across, down, the corner, or a uniform field, 0 of 20 combinations. A
+      // panel that joins nothing is not a panel. Use 'linear' for a gradient at
+      // an arbitrary angle, and the corner above to turn one run into another.
+      void wsum;
+      return wx >= wy ? u : v;
     }
     case 'radial': {
       // INSCRIBED IN THE PERIOD, NOT MEASURED IN MILLIMETRES.
@@ -6495,7 +6503,7 @@ const TIPS = {
     'How the two crossing wave families combine. At 100% the stronger of the two wins, giving crisp continuous bands with bright intersections - the argyle look. Lower blends them, so the bands soften and only their crossings stay bright.',
   modulation:
     'What drives hole size across the panel. Uniform: every hole the same. Linear: a straight ramp. RAMP: the one for a TRANSITION PANEL - it counts the lattice’s own rows instead of measuring millimetres, so the first row is exactly min dia, the last exactly max dia, and every row between is an equal step. Linear gets near the ends but lands on whatever each row position gives, and stumbles on one row whenever the span is not a whole number of rows - which shows at the joint on a panel whose whole job is to meet the standard panel beside it. Radial: grows from a centre point. Wave: one family of diagonal stripes. Lattice: two crossing families, giving a diamond grid of large holes. Chevron: the same two families multiplied, so only their crossings open up. Bands / noise / checker: stepped, organic and chequered variation.',
-  modAngle: 'Direction the ramp runs. 0 = left to right, 90 = top to bottom, and the diagonals in between. With TURN THE CORNER on, 45 / 135 / 225 / 315 pick which corner the fine end sits in.',
+  modAngle: 'Direction the ramp runs: 0 left to right, 90 top to bottom, 180 and 270 the other way. A ramp follows an AXIS - angles between snap to the nearer one, because a diagonal ramp matched no edge of any panel in the set and was identical to LINEAR anyway. Use linear for a gradient at an arbitrary angle. With TURN THE CORNER on, 45 / 135 / 225 / 315 pick which corner holds the fine end.',
   rampCorner:
     'Grades away from one CORNER in an L instead of straight across, which is what joins a run grading left to right to one grading top to bottom. Its top edge is exactly the across ramp and its left edge exactly the down ramp, so an across panel sits above it and a down panel beside it. modAngle picks the corner.',
   sizeLevels:

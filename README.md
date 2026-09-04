@@ -96,8 +96,13 @@ across panel sits above the corner and a down panel beside it. `modAngle` picks
 which corner holds the fine end - 45 top-left, 135 top-right, 225 bottom-right,
 315 bottom-left.
 
-Without the corner switch, angles between the axes now give a real diagonal.
-They used to snap to whichever axis dominated, so 45 behaved exactly as 0.
+A ramp follows an AXIS; angles between snap to the nearer one. A diagonal ramp
+was built and removed: measured against `linear` at the same angle it was
+identical to the millimetre whenever the span is a whole number of rows - which
+it is by default - and all four of its edges vary, so it matched no edge of any
+panel in the set (across, down, corner, uniform: 0 of 20 combinations). A panel
+that joins nothing is not a panel. Use `linear` for a gradient at an arbitrary
+angle.
 
 Saved: `Transition 12.5-25`, its `flip`, and `across`. All on hex pitch 50, the
 same lattice as `Basic-50-12` / `Basic-50-25`, so the ends match those panels

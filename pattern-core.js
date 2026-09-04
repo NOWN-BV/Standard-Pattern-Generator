@@ -2095,9 +2095,17 @@ function modulate(x, y, p, f) {
       // modAngle picks which corner is the fine end - 45 top-left, 135
       // top-right, 225 bottom-right, 315 bottom-left.
       if (p.rampCorner) return Math.max(u, v);
-      // The near corner is exactly 0 and the far corner exactly 1 whatever the
-      // angle, which is what keeps the ends meeting their neighbours.
-      return wsum <= 0 ? 0.5 : (u * wx + v * wy) / wsum;
+      // A RAMP RUNS ALONG ONE AXIS. THERE IS NO DIAGONAL HERE.
+      //
+      // Blending the two by angle was tried and removed. Measured, it was
+      // identical to 'linear' at every angle whenever the span is a whole
+      // number of rows - which it is by default - so it added nothing; and its
+      // four edges all vary, so it matched no edge of any panel in the set:
+      // across, down, the corner, or a uniform field, 0 of 20 combinations. A
+      // panel that joins nothing is not a panel. Use 'linear' for a gradient at
+      // an arbitrary angle, and the corner above to turn one run into another.
+      void wsum;
+      return wx >= wy ? u : v;
     }
     case 'radial': {
       // INSCRIBED IN THE PERIOD, NOT MEASURED IN MILLIMETRES.

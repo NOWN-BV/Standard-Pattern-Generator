@@ -632,10 +632,13 @@ console.log('all smoke checks passed');
     for (const part of edge(corner, side).split('|'))
       assert.equal(part.split('@')[1], '25.0000', `corner ${side} edge must have finished`);
 
-  // a plain diagonal is NOT a corner - if these ever matched, one of the two
-  // is redundant and should go
+  // Without the corner switch a ramp runs along one axis - there is no
+  // diagonal. 45 therefore behaves as across, which is what it is nearest.
   const diag = buildField({ ...B, modAngle: 45 });
-  assert.notEqual(edge(diag, 'top'), edge(corner, 'top'));
+  assert.equal(edge(diag, 'top'), edge(across, 'top'), '45 without the corner is the across ramp');
+  for (const side of ['left', 'right'])
+    for (const part of edge(diag, side).split('|'))
+      assert.ok(/@(12.5000|25.0000)$/.test(part), 'and its side edges stay flat');
 
   // and the pure axes are untouched by either addition
   for (const angle of [0, 90, 180, 270]) {
