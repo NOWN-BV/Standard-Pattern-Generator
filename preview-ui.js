@@ -2046,9 +2046,52 @@ function wireExports() {
   const geoInfo = document.getElementById('geoInfo');
   const geoAlign = document.getElementById('geoAlign');
   const geoInput = document.getElementById('btnPanelGeo');
+  const geoDrop = document.getElementById('geoDrop');
   const showGeo = (msg) => {
     if (geoInfo) geoInfo.textContent = msg;
   };
+  const geoOpts = () => ({ dropOutside: geoDrop ? geoDrop.checked : true });
+  const describeGeo = () => {
+    if (!panelGeoDxf) return;
+    let g;
+    try {
+      g = parsePanelGeo(panelGeoDxf, geoOpts());
+    } catch {
+      showGeo('unreadable dxf');
+      return null;
+    }
+    if (!g.entities.length) {
+      showGeo('no usable entities');
+      return null;
+    }
+    const b = g.bbox;
+    // Everything that did not make it, said out loud. R12 has no SPLINE, and a
+    // profile that quietly went missing is worse than one that never loaded.
+    const lost = Object.entries(g.skipped)
+      .map(([k, n]) => k + ' x' + n)
+      .join(', ');
+    const stray = g.outside
+      ? (geoDrop && geoDrop.checked ? '  DROPPED ' : '  KEPT ') +
+        g.outside +
+        ' outside declared extents'
+      : '';
+    showGeo(
+      panelGeoName +
+        ' - ' +
+        g.entities.length +
+        ' ents, ' +
+        Math.round(b.maxX - b.minX) +
+        ' x ' +
+        Math.round(b.maxY - b.minY) +
+        'mm, layers: ' +
+        g.layers.join(' ') +
+        (lost ? '  UNSUPPORTED: ' + lost : '') +
+        stray
+    );
+    return g;
+  };
+  if (geoDrop) geoDrop.addEventListener('change', describeGeo);
+  if (geoAlign) geoAlign.addEventListener('change', describeGeo);
   if (geoInput)
     geoInput.addEventListener('change', () => {
       const file = geoInput.files && geoInput.files[0];
@@ -2057,43 +2100,19 @@ function wireExports() {
       reader.onload = () => {
         panelGeoDxf = String(reader.result);
         panelGeoName = file.name;
-        let g;
-        try {
-          g = parsePanelGeo(panelGeoDxf);
-        } catch {
-          panelGeoDxf = null;
-          showGeo('unreadable dxf');
-          return;
-        }
-        if (!g.entities.length) {
-          panelGeoDxf = null;
-          showGeo('no usable entities');
-          return;
-        }
-        const b = g.bbox;
-        // Say what was dropped. R12 has no SPLINE or ELLIPSE, and a profile
-        // that quietly went missing is worse than one that never loaded.
-        const lost = Object.entries(g.skipped)
-          .map(([k, n]) => k + ' x' + n)
-          .join(', ');
-        showGeo(
-          panelGeoName +
-            ' - ' +
-            g.entities.length +
-            ' ents, ' +
-            Math.round(b.maxX - b.minX) +
-            ' x ' +
-            Math.round(b.maxY - b.minY) +
-            'mm, layers: ' +
-            g.layers.join(' ') +
-            (lost ? '  DROPPED: ' + lost : '')
-        );
+        if (!describeGeo()) panelGeoDxf = null;
       };
       reader.readAsText(file);
     });
   const dxfMeta = () =>
     panelGeoDxf
-      ? { panelGeo: { dxf: panelGeoDxf, align: geoAlign ? geoAlign.value : 'origin' } }
+      ? {
+          panelGeo: {
+            dxf: panelGeoDxf,
+            align: geoAlign ? geoAlign.value : 'center',
+            ...geoOpts(),
+          },
+        }
       : {};
   document.getElementById('x-dxf').onclick = () =>
     download(`${stem()}.dxf`, toDXF(current, dxfMeta()), 'application/dxf');

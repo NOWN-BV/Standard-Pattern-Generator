@@ -213,8 +213,34 @@ function dxfPairs(text) {
  * an old POLYLINE / VERTEX / SEQEND run is regrouped into one entity. Bulges
  * ride along on the vertex, so an arc inside a profile survives the trip.
  */
-export function parsePanelGeo(text) {
+export function parsePanelGeo(text, opts = {}) {
   const p = dxfPairs(text);
+  // WHAT THE FILE SAYS ITS OWN DRAWING IS.
+  //
+  // $EXTMIN / $EXTMAX are the extents the CAD app last computed. A file can
+  // carry stray geometry outside them - a mirrored construction copy left in
+  // model space, say - and merging that would stamp it onto every panel, tens
+  // of metres away, silently wrecking the sheet. So they are read, compared,
+  // and any disagreement is REPORTED. Dropping only happens when asked.
+  let headerBbox = null;
+  {
+    const at = (name) => {
+      for (let i = 0; i < p.length; i++)
+        if (p[i][0] === '9' && p[i][1].trim() === name) {
+          const g = (code) => {
+            for (let k = i + 1; k < Math.min(i + 8, p.length); k++)
+              if (p[k][0] === code) return Number(p[k][1]);
+            return NaN;
+          };
+          return { x: g('10'), y: g('20') };
+        }
+      return null;
+    };
+    const lo = at('$EXTMIN');
+    const hi = at('$EXTMAX');
+    if (lo && hi && Number.isFinite(lo.x) && Number.isFinite(hi.x) && hi.x > lo.x)
+      headerBbox = { minX: lo.x, minY: lo.y, maxX: hi.x, maxY: hi.y };
+  }
   const out = [];
   const skipped = {};
   const layers = new Set();
@@ -327,23 +353,106 @@ export function parsePanelGeo(text) {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   };
+  // AN ARC IS NOT ITS CIRCLE.
+  //
+  // Taking the full circle for an arc looks harmless until a file contains one
+  // shallow arc of a large radius - a slightly crowned edge, say - and the
+  // bounding box jumps to a hundred metres, which then throws every bbox and
+  // centred alignment completely off. Only the swept part counts: the two
+  // endpoints, plus whichever of the four cardinal points the sweep passes.
+  const arcSee = (e) => arcSee2(e, see);
   for (const e of out) {
     if (e.kind === 'line') {
       see(e.x1, e.y1);
       see(e.x2, e.y2);
     } else if (e.kind === 'poly') {
       for (const vv of e.verts) see(vv[0], vv[1]);
+    } else if (e.kind === 'arc') {
+      arcSee(e);
     } else {
       see(e.cx - e.r, e.cy - e.r);
       see(e.cx + e.r, e.cy + e.r);
     }
   }
+  // Anything living wholly outside the file's declared extents is stray.
+  let outside = 0;
+  let kept = out;
+  if (headerBbox) {
+    const pad = 1e-6;
+    const inside = (e) => {
+      let a = Infinity;
+      let b = -Infinity;
+      let c = Infinity;
+      let d = -Infinity;
+      const s = (x, y) => {
+        if (x < a) a = x;
+        if (x > b) b = x;
+        if (y < c) c = y;
+        if (y > d) d = y;
+      };
+      if (e.kind === 'line') {
+        s(e.x1, e.y1);
+        s(e.x2, e.y2);
+      } else if (e.kind === 'poly') {
+        for (const vv of e.verts) s(vv[0], vv[1]);
+      } else if (e.kind === 'arc') {
+        arcSee2(e, s);
+      } else {
+        s(e.cx - e.r, e.cy - e.r);
+        s(e.cx + e.r, e.cy + e.r);
+      }
+      return (
+        b >= headerBbox.minX - pad &&
+        a <= headerBbox.maxX + pad &&
+        d >= headerBbox.minY - pad &&
+        c <= headerBbox.maxY + pad
+      );
+    };
+    const within = out.filter(inside);
+    outside = out.length - within.length;
+    if (outside && opts.dropOutside) kept = within;
+  }
+  if (kept !== out) {
+    minX = Infinity;
+    minY = Infinity;
+    maxX = -Infinity;
+    maxY = -Infinity;
+    for (const e of kept) {
+      if (e.kind === 'line') {
+        see(e.x1, e.y1);
+        see(e.x2, e.y2);
+      } else if (e.kind === 'poly') {
+        for (const vv of e.verts) see(vv[0], vv[1]);
+      } else if (e.kind === 'arc') {
+        arcSee(e);
+      } else {
+        see(e.cx - e.r, e.cy - e.r);
+        see(e.cx + e.r, e.cy + e.r);
+      }
+    }
+  }
+  const usedLayers = new Set(kept.map((e) => e.layer));
   return {
-    entities: out,
-    layers: [...layers],
+    entities: kept,
+    layers: [...layers].filter((n) => usedLayers.has(n)),
     skipped,
-    bbox: out.length ? { minX, minY, maxX, maxY } : null,
+    headerBbox,
+    outside,
+    bbox: kept.length ? { minX, minY, maxX, maxY } : null,
   };
+}
+
+/** The swept extent of an arc, reported through a caller's `see`. */
+function arcSee2(e, see) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const norm = (d) => ((d % 360) + 360) % 360;
+  const a1 = norm(e.a1);
+  const a2 = norm(e.a2);
+  const span = norm(a2 - a1) || (e.a1 === e.a2 ? 0 : 360);
+  see(e.cx + e.r * Math.cos(rad(a1)), e.cy + e.r * Math.sin(rad(a1)));
+  see(e.cx + e.r * Math.cos(rad(a2)), e.cy + e.r * Math.sin(rad(a2)));
+  for (const c of [0, 90, 180, 270])
+    if (norm(c - a1) <= span) see(e.cx + e.r * Math.cos(rad(c)), e.cy + e.r * Math.sin(rad(c)));
 }
 
 /**
@@ -425,7 +534,7 @@ export function toDXF(field, meta = {}) {
   const colorInt = hexToColorInt(ral.hex);
   // The real part, if one was supplied, under the perforation.
   const pg = meta.panelGeo;
-  const geo = pg && pg.dxf ? parsePanelGeo(pg.dxf) : null;
+  const geo = pg && pg.dxf ? parsePanelGeo(pg.dxf, { dropOutside: pg.dropOutside !== false }) : null;
   const geoOff = geo ? panelGeoOffset(geo, pg.align, pg.dx ?? 0, pg.dy ?? 0) : null;
 
   const { cols, rows } = field.params;

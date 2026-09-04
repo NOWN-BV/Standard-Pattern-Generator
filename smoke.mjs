@@ -288,3 +288,50 @@ console.log('all smoke checks passed');
     'panels, layers kept, SPLINE reported not swallowed'
   );
 }
+
+// -- panel geometry: arcs, extents and strays -------------------------------
+//
+// Three ways this quietly goes wrong on a real CAD export, all found on one:
+// a shallow arc of a large radius blowing the bounding box up to a hundred
+// metres, a mirrored construction copy left in model space, and the file's own
+// declared extents disagreeing with what is actually in it.
+{
+  // an arc sweeping 0 -> 90 of radius 100 about the origin reaches (100,100),
+  // NOT (-100,-100): its circle is not its extent.
+  const arcDxf = [
+    '0', 'SECTION', '2', 'HEADER',
+    '9', '$EXTMIN', '10', '0.0', '20', '0.0', '30', '0.0',
+    '9', '$EXTMAX', '10', '100.0', '20', '100.0', '30', '0.0',
+    '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'ENTITIES',
+    '0', 'ARC', '8', 'GEOMETRY', '10', '0.0', '20', '0.0', '30', '0.0',
+    '40', '100.0', '50', '0.0', '51', '90.0',
+    // stray: a mirrored copy far outside the declared extents
+    '0', 'LINE', '8', 'GEOMETRY', '10', '-9000.0', '20', '0.0', '30', '0.0',
+    '11', '-8900.0', '21', '0.0', '31', '0.0',
+    '0', 'ENDSEC', '0', 'EOF',
+  ].join('\r\n');
+
+  const loose = parsePanelGeo(arcDxf);
+  assert.equal(loose.outside, 1, 'the stray must be COUNTED even when it is kept');
+  assert.equal(loose.entities.length, 2, 'nothing is dropped unless asked');
+  assert.ok(loose.bbox.minX < -8000, 'kept stray must show in the bbox');
+
+  const tight = parsePanelGeo(arcDxf, { dropOutside: true });
+  assert.equal(tight.entities.length, 1, 'the stray drops when asked');
+  assert.equal(tight.outside, 1, 'and is still reported after dropping');
+  // the arc alone: 0..100 both ways, not -100..100
+  assert.ok(Math.abs(tight.bbox.minX - 0) < 1e-6, 'arc bbox must use the SWEPT arc');
+  assert.ok(Math.abs(tight.bbox.maxX - 100) < 1e-6);
+  assert.ok(Math.abs(tight.bbox.minY - 0) < 1e-6);
+  assert.ok(Math.abs(tight.bbox.maxY - 100) < 1e-6);
+  assert.deepEqual(tight.headerBbox, { minX: 0, minY: 0, maxX: 100, maxY: 100 });
+
+  // toDXF drops strays by default, so one bad file cannot blow up a sheet
+  const field = buildField({ cols: 1, rows: 1 });
+  const out = toDXF(field, { panelGeo: { dxf: arcDxf, align: 'center' } });
+  assert.equal((out.match(/^ARC$/gm) || []).length, 1, 'the arc is carried');
+  assert.equal((out.match(/^LINE$/gm) || []).length, 0, 'the stray is not');
+
+  console.log('panel geometry: arc extents swept, strays counted and dropped by default');
+}

@@ -156,7 +156,8 @@ const html = `<!doctype html>
     <span id="stats"></span>
     <span style="margin-left:auto;display:flex;gap:7px">
       <label class="importbtn" title="Panel geometry DXF laid under the perforation on every panel. Session only - it is a production input, not part of the pattern recipe, so it is deliberately not saved into a design.">panel geo<input id="btnPanelGeo" type="file" accept=".dxf,application/dxf" hidden></label>
-      <select id="geoAlign" title="Where the geometry's own origin lands inside the 600 x 1200 panel box."><option value="origin">as drawn</option><option value="bbox">bbox to corner</option><option value="center">centred</option></select>
+      <select id="geoAlign" title="Where the geometry's own origin lands inside the 600 x 1200 panel box. A flat pattern larger than the module - one with returns - wants CENTRED."><option value="center">centred</option><option value="origin">as drawn</option><option value="bbox">bbox to corner</option></select>
+      <label class="lab" title="Geometry lying wholly outside the file's own $EXTMIN/$EXTMAX. A mirrored construction copy left in model space is the usual cause, and merging it would stamp it onto every panel tens of metres away."><input id="geoDrop" type="checkbox" checked> drop stray</label>
       <span id="geoInfo" class="storewhere"></span>
       <button id="x-svg">svg</button>
       <button id="x-dxf">dxf</button>

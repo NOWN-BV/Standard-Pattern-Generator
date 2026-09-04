@@ -68,6 +68,17 @@ returns and notches.
   silently: a cut file quietly missing a profile is scrap metal.
 - Alignment picks where the file own origin lands in the panel box: as drawn
   (for a file prepared on the module frame), bbox to corner, or centred.
+- An arc counts for the part it SWEEPS, not for its whole circle. One shallow
+  arc of a large radius otherwise puts the bounding box a hundred metres wide
+  and throws every centred alignment off.
+- Geometry lying wholly outside the file own `$EXTMIN` / `$EXTMAX` is treated
+  as stray - a mirrored construction copy left in model space is the usual
+  cause - and dropped by default, with the count shown. Untick **drop stray**
+  to keep it.
+
+On `Base Geo.dxf` that reads 704.50 x 1269.50mm with the inner bend lines
+596.00 x 1196.00 apart, which is the perforated face exactly, so **centred** is
+the alignment that file wants.
 - Held for the session only. The same part applies to every design, so storing
   it in a design would copy the DXF into all hundred-odd of them - it is a
   production input, not part of the pattern recipe.
