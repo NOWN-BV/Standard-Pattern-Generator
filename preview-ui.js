@@ -680,7 +680,7 @@ const SPEC = [
     key: 'taperDriver',
     kind: 'select',
     label: 'fade shape',
-    options: () => ['linear', 'band',
+    options: () => ['ramp', 'linear', 'band',
       'radial', 'wave', 'noise', 'lattice', 'chevron', 'blocks', 'random', 'even'],
     when: (st) => st.taper > 0,
   },

@@ -67,6 +67,28 @@ whose span is longer than the panel, a driver that never reaches its own
 extreme, a pitch that refuses the diameter - all of them show up there instead
 of in a DXF.
 
+## Fading a pattern out at the edges
+
+The fade layer takes the same row-counted **ramp** shape, so a fade panel
+arrives at exactly the small hole size and meets the plain field beside it. Set
+`taper` 100, `taperTarget` hole size, `taperDriver` ramp, and `taperAngle` for
+the direction - 0 fades to the right, 180 left, 90 down, 270 up. Keep the fade
+span equal to the panel (`modScope` across the run), or the fade only gets part
+way: on a 600mm panel with the span left at 2400 it reaches a quarter of the
+way and stops at 29.4mm.
+
+The fade used to walk toward the product floor, so a design stating 12.5 as its
+small end faded to 12, and a panel ending at 12 cannot meet the 12.5 field it
+butts against. A design that states a size RANGE has said where its small end
+is, and that is where the fade lands now. A uniform design has not stated one,
+and fading toward min dia would do nothing there, so the floor still applies.
+
+Saved: `Chess 50 board` plus `fade right` / `left` / `down` / `up` - stagger,
+pitch 50, 12.5 and 35mm on a 150mm chequer. That square size matters: 4 fit
+across the module and 8 down, both even, so the chequer returns to the same
+phase at every joint. Every joint is asserted hole for hole - each fade panel
+inner edge against the board, its outer edge against a plain 12.5 field.
+
 ## Transition panels
 
 A transition panel is specified by its ENDS: it butts against a standard panel

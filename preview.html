@@ -1804,6 +1804,11 @@ function taperFieldAt(x0, y0, p, f) {
   const uy = nh ? y / nh : 0;
   const a = rad(TAPER_DIRS[p.taperDir] ?? p.taperAngle ?? 0);
   switch (p.taperDriver ?? 'linear') {
+    // The fade counted in rows, so a fade panel arrives at EXACTLY the small
+    // hole size and meets the plain field it butts against. Every other shape
+    // here is a function of position and lands near that, not on it.
+    case 'ramp':
+      return rampCount(x, y, nw, nh, a, p);
     case 'radial': {
       // 0 at the centre, 1 at the corners - a vignette. 'invert' turns it into
       // a fade that eats outward from the middle instead.
@@ -2156,6 +2161,53 @@ function imageAt(x, y, p, f) {
   return clamp(p.imageInvert ? 1 - lum : lum, 0, 1);
 }
 
+/**
+ * A ramp counted in the lattice's OWN rows and columns, in [0,1].
+ *
+ * Shared by the size driver and the fade layer, because both need the same
+ * property and for the same reason: the first line has to be exactly one end
+ * and the last exactly the other, or the panel will not meet the one it butts
+ * against. Measuring in millimetres gets near the ends and lands on them only
+ * by luck.
+ */
+function rampCount(x, y, nw, nh, a, p) {
+  const sp = latticeSpacing(p);
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  // THE STEP IS BETWEEN DISTINCT POSITIONS, NOT BETWEEN LATTICE CELLS.
+  //
+  // A staggered lattice offsets every other row by half a pitch, so along that
+  // axis the holes sit half a pitch apart. Counting whole cells rounded each
+  // offset hole onto its neighbour's index and the ramp came out in PAIRS of
+  // identical lines - a doubled line at every step. Only the axis carrying the
+  // stagger is halved, and on a transposed lattice that is y.
+  const fo = Math.abs((sp.offset ?? 0) % 1);
+  const side = Math.min(fo, 1 - fo);
+  const staggered = sp.offset && side > 0;
+  const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
+  const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
+  if (!(stepX > 0) || !(stepY > 0) || !(nw > 0) || !(nh > 0)) return 0.5;
+  const nx = Math.max(1, Math.round(nw / stepX));
+  const ny = Math.max(1, Math.round(nh / stepY));
+  let u = clamp(Math.round(x / stepX), 0, nx) / nx;
+  let v = clamp(Math.round(y / stepY), 0, ny) / ny;
+  if (c < 0) u = 1 - u;
+  if (s < 0) v = 1 - v;
+  // THE CORNER: WHAT JOINS AN ACROSS RUN TO A DOWN RUN.
+  //
+  // Along the top edge the down term is 0, so the value IS the across ramp;
+  // along the left edge the across term is 0, so it IS the down ramp. The
+  // contours turn the corner in an L and the panel hands off to both.
+  // The angle picks the corner: 45 top-left, 135 top-right, 225 bottom-right,
+  // 315 bottom-left.
+  if (p.rampCorner) return Math.max(u, v);
+  // Otherwise a ramp follows ONE axis; angles between snap to the nearer.
+  // A diagonal was tried and removed: identical to 'linear' at every angle
+  // whenever the span is a whole number of rows, and its four edges all vary
+  // so it matched no edge of any panel in the set.
+  return Math.abs(c) >= Math.abs(s) ? u : v;
+}
+
 /** Modulation driver -> t in [0,1] at a point, before invert/gamma. */
 function modulate(x, y, p, f) {
   // Normalisation basis: the run itself, or a fixed mm span that does not
@@ -2194,67 +2246,8 @@ function modulate(x, y, p, f) {
     //
     // Direction follows 'linear': 90 runs top to bottom, 0 left to right, and
     // the opposite sign of the axis runs the other way.
-    case 'ramp': {
-      const sp = latticeSpacing(p);
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      // THE STEP IS BETWEEN DISTINCT POSITIONS, NOT BETWEEN LATTICE CELLS.
-      //
-      // A staggered lattice offsets every other row by half a pitch, so along
-      // that axis the holes actually sit half a pitch apart, not a whole one.
-      // Counting in whole cells rounded each offset hole onto its neighbour's
-      // index, and the ramp came out in PAIRS of identical columns - a doubled
-      // column every step, which is exactly the kind of seam this mode exists
-      // to avoid. The stagger is in x on a normal lattice and in y on a
-      // transposed one, so only the axis that carries it is halved.
-      const f2 = Math.abs((sp.offset ?? 0) % 1);
-      const side = Math.min(f2, 1 - f2);
-      const staggered = sp.offset && side > 0;
-      const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
-      const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
-      if (!(stepX > 0) || !(stepY > 0) || !(nw > 0) || !(nh > 0)) return 0.5;
-      // BOTH AXES AT ONCE, SO A RUN CAN TURN A CORNER.
-      //
-      // Counting along whichever axis happened to dominate meant 45 degrees
-      // behaved exactly as 0: there was no diagonal, and a wall that graded
-      // left to right could not be joined to one grading top to bottom. Each
-      // axis is counted in its own rows and columns, then the two are mixed by
-      // how much the angle asks for. At 0 and 90 the other term drops out
-      // entirely, so the pure runs are bit-identical to what they were.
-      const nx = Math.max(1, Math.round(nw / stepX));
-      const ny = Math.max(1, Math.round(nh / stepY));
-      let u = clamp(Math.round(x / stepX), 0, nx) / nx;
-      let v = clamp(Math.round(y / stepY), 0, ny) / ny;
-      if (c < 0) u = 1 - u;
-      if (s < 0) v = 1 - v;
-      const wx = Math.abs(c);
-      const wy = Math.abs(s);
-      const wsum = wx + wy;
-      // THE CORNER: WHAT ACTUALLY JOINS AN X RUN TO A Y RUN.
-      //
-      // A straight ramp makes every column one size (running across) or every
-      // row one size (running down), so the two cannot butt together: the
-      // across panel presents a uniform column at its edge and the down panel
-      // presents a varying one. A diagonal does not fix that either - its edges
-      // vary too. Taking the LARGER of the two counts does: along the top edge
-      // v is 0 so t is u, which is exactly the across ramp, and along the left
-      // edge u is 0 so t is v, exactly the down ramp. The contours turn the
-      // corner in an L, and the panel hands off correctly to both runs.
-      // modAngle picks which corner is the fine end - 45 top-left, 135
-      // top-right, 225 bottom-right, 315 bottom-left.
-      if (p.rampCorner) return Math.max(u, v);
-      // A RAMP RUNS ALONG ONE AXIS. THERE IS NO DIAGONAL HERE.
-      //
-      // Blending the two by angle was tried and removed. Measured, it was
-      // identical to 'linear' at every angle whenever the span is a whole
-      // number of rows - which it is by default - so it added nothing; and its
-      // four edges all vary, so it matched no edge of any panel in the set:
-      // across, down, the corner, or a uniform field, 0 of 20 combinations. A
-      // panel that joins nothing is not a panel. Use 'linear' for a gradient at
-      // an arbitrary angle, and the corner above to turn one run into another.
-      void wsum;
-      return wx >= wy ? u : v;
-    }
+    case 'ramp':
+      return rampCount(x, y, nw, nh, a, p);
     case 'radial': {
       // INSCRIBED IN THE PERIOD, NOT MEASURED IN MILLIMETRES.
       //
@@ -3061,7 +3054,16 @@ function buildField(params) {
     // practicalFloor is the real floor: below it a hole reads as a pinhole
     // rather than a perforation. Where min dia is already at or under that,
     // this is exactly the old behaviour, so existing designs do not move.
-    const floorR = Math.min(minR, LIMITS.practicalFloor / 2);
+    // WHERE THE FADE BOTTOMS OUT.
+    //
+    // A design that states a size RANGE has already said what its small end
+    // is, and that is where the fade has to land: asking for 12.5 and getting
+    // 12 leaves a fade panel that cannot meet the 12.5 field beside it. Only a
+    // uniform design has no stated small end - there minR IS the hole size, so
+    // fading toward it would do nothing, and the product floor is the sensible
+    // target instead.
+    const floorR =
+      p.minDia < p.maxDia ? minR : Math.min(minR, LIMITS.practicalFloor / 2);
     for (const c of candidates) {
       const k = 1 - taperAt(c.cx, c.cy, p, f);
       c.r = Math.round((floorR + (c.r - floorR) * k) * 1e9) / 1e9;
@@ -5576,7 +5578,7 @@ const SPEC = [
     key: 'taperDriver',
     kind: 'select',
     label: 'fade shape',
-    options: () => ['linear', 'band',
+    options: () => ['ramp', 'linear', 'band',
       'radial', 'wave', 'noise', 'lattice', 'chevron', 'blocks', 'random', 'even'],
     when: (st) => st.taper > 0,
   },

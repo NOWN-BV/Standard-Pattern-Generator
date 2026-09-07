@@ -654,3 +654,60 @@ console.log('all smoke checks passed');
   }
   console.log('the corner hands off to an across run above it and a down run beside it');
 }
+
+// -- a fade panel must land on the stated small size ------------------------
+//
+// The fade walked toward the product floor, so a design stating 12.5 as its
+// small end faded to 12 - and a fade panel that ends at 12 cannot meet the
+// 12.5 field it butts against. A design that states a size RANGE has already
+// said where its small end is. Only a uniform one has not, and there fading
+// toward min dia would do nothing, so the floor still applies.
+{
+  const B = {
+    cols: 1, rows: 1, pitch: 50, lattice: 'stagger', shape: 'circle',
+    minDia: 12.5, maxDia: 35, modulation: 'checker', steps: 3, modScope: 'run',
+    gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, tiling: 'WALL',
+  };
+  const fade = (angle) => ({
+    ...B, taper: 100, taperTarget: 'size', taperDriver: 'ramp',
+    taperScope: 'wall', taperDir: '', taperAngle: angle,
+  });
+  const edge = (f, which) => {
+    const xs = [...new Set(f.holes.map((h) => +h.cx.toFixed(3)))].sort((a, b) => a - b);
+    const ys = [...new Set(f.holes.map((h) => +h.cy.toFixed(3)))].sort((a, b) => a - b);
+    const pick = {
+      top: (h) => Math.abs(h.cy - ys[0]) < 1e-6,
+      bottom: (h) => Math.abs(h.cy - ys[ys.length - 1]) < 1e-6,
+      left: (h) => Math.abs(h.cx - xs[0]) < 1e-6,
+      right: (h) => Math.abs(h.cx - xs[xs.length - 1]) < 1e-6,
+    }[which];
+    const key = which === 'top' || which === 'bottom' ? 'cx' : 'cy';
+    return f.holes.filter(pick).sort((a, b) => a[key] - b[key])
+      .map((h) => h[key].toFixed(3) + '@' + (2 * h.r).toFixed(4)).join('|');
+  };
+  const board = buildField(B);
+  const plain = buildField({ ...B, modulation: 'uniform', maxDia: 12.5, taper: 0 });
+
+  for (const [angle, inner, outer] of [
+    [0, 'left', 'right'], [180, 'right', 'left'],
+    [90, 'top', 'bottom'], [270, 'bottom', 'top'],
+  ]) {
+    const f = buildField(fade(angle));
+    assert.equal(edge(f, inner), edge(board, inner), `@${angle}: inner edge must meet the board`);
+    assert.equal(edge(f, outer), edge(plain, outer), `@${angle}: outer edge must meet the plain field`);
+    for (const part of edge(f, outer).split('|'))
+      assert.ok(part.endsWith('@12.5000'), `@${angle}: outer edge must be exactly the small size`);
+  }
+
+  // uniform designs keep the product floor, or their fade layer does nothing
+  const uni = buildField({
+    ...B, modulation: 'uniform', minDia: 25, maxDia: 25,
+    taper: 100, taperTarget: 'size', taperDriver: 'ramp',
+    taperScope: 'wall', taperDir: '', taperAngle: 0,
+  });
+  const small = Math.min(...uni.holes.map((h) => 2 * h.r));
+  assert.ok(small < 25, 'a uniform design must still fade');
+  assert.ok(Math.abs(small - LIMITS.practicalFloor) < 1e-6, 'and toward the product floor');
+
+  console.log('a fade panel ends on the stated small size and meets the plain field');
+}
