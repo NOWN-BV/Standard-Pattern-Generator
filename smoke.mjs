@@ -778,3 +778,46 @@ console.log('all smoke checks passed');
 
   console.log('four different chessboard corners, each meeting the two fades beside it');
 }
+
+// -- the fade curve paces the fade, it does not move the ends ---------------
+//
+// A straight fade takes the pattern apart from the first row: by mid panel the
+// sizes have closed up and there is only a gradient left. The curve holds them
+// apart and gives way at the joint. What it must never do is move an end - the
+// inner edge is the untouched pattern and the outer edge is the small size, and
+// both are what the neighbouring panels are cut to meet.
+{
+  const B = {
+    cols: 1, rows: 1, lattice: 'stagger', latticeAspect: 100, pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 35, modulation: 'checker', steps: 6, modScope: 'run',
+    gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, tiling: 'P1',
+  };
+  const edge = (f, w) => {
+    const xs = [...new Set(f.holes.map((h) => +h.cx.toFixed(3)))].sort((a, b) => a - b);
+    const pick = w === 'left'
+      ? (h) => Math.abs(h.cx - xs[0]) < 1e-6
+      : (h) => Math.abs(h.cx - xs[xs.length - 1]) < 1e-6;
+    return f.holes.filter(pick).sort((a, b) => a.cy - b.cy)
+      .map((h) => h.cy.toFixed(3) + '@' + (2 * h.r).toFixed(4)).join('|');
+  };
+  const board = buildField(B);
+  const plain = buildField({ ...B, modulation: 'uniform', maxDia: 12.5 });
+  // 2 squares across and 4 down means the board tiles with itself both ways
+  assert.equal(edge(board, 'left'), edge(board, 'right'), 'the board must tile left to right');
+
+  let held = null;
+  for (const g of [1, 1.6, 2.2, 3]) {
+    const f = buildField({
+      ...B, taper: 100, taperTarget: 'size', taperDriver: 'ramp',
+      taperScope: 'wall', taperDir: '', taperAngle: 0, taperGamma: g,
+    });
+    assert.equal(edge(f, 'left'), edge(board, 'left'), `gamma ${g}: inner edge must be the board`);
+    assert.equal(edge(f, 'right'), edge(plain, 'right'), `gamma ${g}: outer edge must be 12.5`);
+    // and more of the pattern survives to mid-panel as the curve rises
+    const mid = f.holes.filter((h) => Math.abs(h.cx - PANEL.moduleW / 2) < 26).map((h) => 2 * h.r);
+    const spread = Math.max(...mid) - Math.min(...mid);
+    if (held !== null) assert.ok(spread > held, `gamma ${g} must hold more pattern than the last`);
+    held = spread;
+  }
+  console.log('the fade curve holds the pattern longer without moving either end');
+}

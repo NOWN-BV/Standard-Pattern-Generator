@@ -570,6 +570,12 @@ const DEFAULTS = {
   // is that it does its own thing while the pattern driver does its own.
   taperKx: 2,
   taperKy: 4,
+  // HOW THE FADE IS PACED. 1 is a straight fade, which takes the pattern apart
+  // from the first row. Above 1 holds the sizes apart across most of the panel
+  // and gives way near the joint, so the pattern keeps its character on the way
+  // out; below 1 lets go early. It cannot break a joint - 0 and 1 are fixed
+  // points of any power.
+  taperGamma: 1,
   taperSharp: 100,
   // Measured across ONE PANEL TILE by default, so the fade repeats with the
   // tiling and a faded run stays a repeating kit. 'wall' measures across the
@@ -1895,7 +1901,21 @@ function taperAt(x, y, p, f) {
   const amount = clamp(p.taper ?? 0, 0, 100) / 100;
   if (amount <= 0) return 0;
   const v = taperFieldAt(x, y, p, f);
-  const s = amount * (p.taperInvert ? 1 - v : v);
+  // HOW THE FADE IS PACED, NOT HOW FAR IT GOES.
+  //
+  // A straight fade takes the pattern apart from the first row: by mid-panel
+  // the sizes have already collapsed toward each other and there is no pattern
+  // left to see, only a gradient. Curving it holds the sizes apart across most
+  // of the panel and gives way near the joint instead, so the pattern keeps its
+  // character on the way out. Above 1 holds on, below 1 lets go early.
+  //
+  // It cannot break a joint: 0 and 1 are fixed points of any power, so the
+  // inner edge is still untouched pattern and the outer edge still lands on
+  // exactly the small hole size.
+  let u = p.taperInvert ? 1 - v : v;
+  const tg = Math.max(0.05, p.taperGamma ?? 1);
+  if (tg !== 1) u = Math.pow(clamp(u, 0, 1), tg);
+  const s = amount * u;
   // QUANTISE, same reason as t. Wrapping a large wall coordinate back into the
   // tiling unit leaves ~1e-15 of float error, so the identical local point on
   // two panels got fade values that were not a tie - and two panels that are
@@ -5646,6 +5666,15 @@ const SPEC = [
     when: (st) => st.taper > 0 && ['lattice', 'chevron', 'blocks'].includes(st.taperDriver),
   },
   {
+    key: 'taperGamma',
+    kind: 'range',
+    label: 'fade curve',
+    min: 0.2,
+    max: 4,
+    step: 0.05,
+    when: (st) => st.taper > 0,
+  },
+  {
     key: 'taperSharp',
     kind: 'range',
     label: 'fade sharpness',
@@ -6430,6 +6459,8 @@ const TIPS = {
   taperKx:
     'How many cycles of the fade lattice fit across the frame it is measured on - the tiling unit, or the whole wall. Whole numbers only, which is what keeps it seamless.',
   taperKy: 'Cycles down the frame. Twice the across value gives a 45 degree diagonal.',
+  taperGamma:
+    'How the fade is PACED, not how far it goes. 1 is straight, which starts taking the pattern apart at the first row - by mid panel the sizes have closed up and there is only a gradient left. Above 1 holds them apart across most of the panel and gives way near the joint, so the pattern keeps its character on the way out. It cannot break a joint: the inner edge is still untouched and the outer edge still lands on exactly the small hole size.',
   taperSharp:
     'How hard the fade lattice is. At 0 the two wave families simply average into a soft quilt; at 100 lattice keeps the bands continuous where either peaks, chevron breaks them into separate diamonds, and blocks cuts a straight grid.',
   cullDriver:

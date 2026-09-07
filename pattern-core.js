@@ -422,6 +422,12 @@ export const DEFAULTS = {
   // is that it does its own thing while the pattern driver does its own.
   taperKx: 2,
   taperKy: 4,
+  // HOW THE FADE IS PACED. 1 is a straight fade, which takes the pattern apart
+  // from the first row. Above 1 holds the sizes apart across most of the panel
+  // and gives way near the joint, so the pattern keeps its character on the way
+  // out; below 1 lets go early. It cannot break a joint - 0 and 1 are fixed
+  // points of any power.
+  taperGamma: 1,
   taperSharp: 100,
   // Measured across ONE PANEL TILE by default, so the fade repeats with the
   // tiling and a faded run stays a repeating kit. 'wall' measures across the
@@ -1747,7 +1753,21 @@ function taperAt(x, y, p, f) {
   const amount = clamp(p.taper ?? 0, 0, 100) / 100;
   if (amount <= 0) return 0;
   const v = taperFieldAt(x, y, p, f);
-  const s = amount * (p.taperInvert ? 1 - v : v);
+  // HOW THE FADE IS PACED, NOT HOW FAR IT GOES.
+  //
+  // A straight fade takes the pattern apart from the first row: by mid-panel
+  // the sizes have already collapsed toward each other and there is no pattern
+  // left to see, only a gradient. Curving it holds the sizes apart across most
+  // of the panel and gives way near the joint instead, so the pattern keeps its
+  // character on the way out. Above 1 holds on, below 1 lets go early.
+  //
+  // It cannot break a joint: 0 and 1 are fixed points of any power, so the
+  // inner edge is still untouched pattern and the outer edge still lands on
+  // exactly the small hole size.
+  let u = p.taperInvert ? 1 - v : v;
+  const tg = Math.max(0.05, p.taperGamma ?? 1);
+  if (tg !== 1) u = Math.pow(clamp(u, 0, 1), tg);
+  const s = amount * u;
   // QUANTISE, same reason as t. Wrapping a large wall coordinate back into the
   // tiling unit leaves ~1e-15 of float error, so the identical local point on
   // two panels got fade values that were not a tie - and two panels that are

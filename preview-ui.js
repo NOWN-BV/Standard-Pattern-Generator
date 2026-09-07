@@ -748,6 +748,15 @@ const SPEC = [
     when: (st) => st.taper > 0 && ['lattice', 'chevron', 'blocks'].includes(st.taperDriver),
   },
   {
+    key: 'taperGamma',
+    kind: 'range',
+    label: 'fade curve',
+    min: 0.2,
+    max: 4,
+    step: 0.05,
+    when: (st) => st.taper > 0,
+  },
+  {
     key: 'taperSharp',
     kind: 'range',
     label: 'fade sharpness',
@@ -1532,6 +1541,8 @@ const TIPS = {
   taperKx:
     'How many cycles of the fade lattice fit across the frame it is measured on - the tiling unit, or the whole wall. Whole numbers only, which is what keeps it seamless.',
   taperKy: 'Cycles down the frame. Twice the across value gives a 45 degree diagonal.',
+  taperGamma:
+    'How the fade is PACED, not how far it goes. 1 is straight, which starts taking the pattern apart at the first row - by mid panel the sizes have closed up and there is only a gradient left. Above 1 holds them apart across most of the panel and gives way near the joint, so the pattern keeps its character on the way out. It cannot break a joint: the inner edge is still untouched and the outer edge still lands on exactly the small hole size.',
   taperSharp:
     'How hard the fade lattice is. At 0 the two wave families simply average into a soft quilt; at 100 lattice keeps the bands continuous where either peaks, chevron breaks them into separate diamonds, and blocks cuts a straight grid.',
   cullDriver:
