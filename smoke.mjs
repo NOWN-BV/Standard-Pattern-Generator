@@ -712,3 +712,69 @@ console.log('all smoke checks passed');
 
   console.log('a fade panel ends on the stated small size and meets the plain field');
 }
+
+// -- the four chessboard corners --------------------------------------------
+//
+// Laid out as
+//   [corner TL][fade up  ][corner TR]
+//   [fade left][  board  ][fade right]
+//   [corner BL][fade down][corner BR]
+// each corner keeps the pattern at its inner corner and fades to the outer one,
+// so its two inner edges must match the fade panels beside it and its two outer
+// edges must be flat at the small size. All four are different panels - if any
+// two ever come out identical the layout has collapsed.
+{
+  const base = {
+    cols: 1, rows: 1, lattice: 'stagger', latticeAspect: 100, pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 35, modulation: 'lattice', crossKx: 1, crossKy: 2, crossSharp: 0,
+    wavelength: 420, modAngle: 45, modScope: 'run', gamma: 3, sizeContrast: 100,
+    tiling: 'P1', cull: 0,
+  };
+  const fade = (angle, extra = {}) => ({
+    ...base, taper: 100, taperTarget: 'size', taperDriver: 'ramp',
+    taperScope: 'wall', taperDir: '', taperAngle: angle, ...extra,
+  });
+  const edge = (f, w) => {
+    const xs = [...new Set(f.holes.map((h) => +h.cx.toFixed(3)))].sort((a, b) => a - b);
+    const ys = [...new Set(f.holes.map((h) => +h.cy.toFixed(3)))].sort((a, b) => a - b);
+    const pick = {
+      top: (h) => Math.abs(h.cy - ys[0]) < 1e-6,
+      bottom: (h) => Math.abs(h.cy - ys[ys.length - 1]) < 1e-6,
+      left: (h) => Math.abs(h.cx - xs[0]) < 1e-6,
+      right: (h) => Math.abs(h.cx - xs[xs.length - 1]) < 1e-6,
+    }[w];
+    const key = w === 'top' || w === 'bottom' ? 'cx' : 'cy';
+    return f.holes.filter(pick).sort((a, b) => a[key] - b[key])
+      .map((h) => h[key].toFixed(3) + '@' + (2 * h.r).toFixed(4)).join('|');
+  };
+  const F = {
+    up: buildField(fade(270)), down: buildField(fade(90)),
+    left: buildField(fade(180)), right: buildField(fade(0)),
+  };
+  const C = {
+    TR: buildField(fade(315, { rampCorner: true })),
+    TL: buildField(fade(225, { rampCorner: true })),
+    BR: buildField(fade(45, { rampCorner: true })),
+    BL: buildField(fade(135, { rampCorner: true })),
+  };
+  const JOINTS = {
+    TR: [['left', 'up', 'right'], ['bottom', 'right', 'top'], ['top', 'right']],
+    TL: [['right', 'up', 'left'], ['bottom', 'left', 'top'], ['top', 'left']],
+    BR: [['left', 'down', 'right'], ['top', 'right', 'bottom'], ['bottom', 'right']],
+    BL: [['right', 'down', 'left'], ['top', 'left', 'bottom'], ['bottom', 'left']],
+  };
+  for (const [k, [j1, j2, outers]] of Object.entries(JOINTS)) {
+    assert.equal(edge(C[k], j1[0]), edge(F[j1[1]], j1[2]), `${k}: ${j1[0]} must meet fade ${j1[1]}`);
+    assert.equal(edge(C[k], j2[0]), edge(F[j2[1]], j2[2]), `${k}: ${j2[0]} must meet fade ${j2[1]}`);
+    for (const w of outers)
+      for (const part of edge(C[k], w).split('|'))
+        assert.ok(part.endsWith('@12.5000'), `${k}: outer ${w} edge must be the small size`);
+  }
+  const sig = (f) => f.holes.map((h) => h.cx.toFixed(2) + ',' + h.cy.toFixed(2) + ',' + (2 * h.r).toFixed(3)).join('|');
+  const keys = Object.keys(C);
+  for (let i = 0; i < keys.length; i++)
+    for (let j = i + 1; j < keys.length; j++)
+      assert.notEqual(sig(C[keys[i]]), sig(C[keys[j]]), `${keys[i]} and ${keys[j]} are the same panel`);
+
+  console.log('four different chessboard corners, each meeting the two fades beside it');
+}

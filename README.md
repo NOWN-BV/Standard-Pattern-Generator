@@ -83,15 +83,25 @@ butts against. A design that states a size RANGE has said where its small end
 is, and that is where the fade lands now. A uniform design has not stated one,
 and fading toward min dia would do nothing there, so the floor still applies.
 
-Saved: `Chess 50 board` plus `fade right` / `left` / `down` / `up`, on the
-lattice and sizes asked for - stagger, pitch 50, 12.5 to 35mm - but driven by
-the SAME crossed-wave field as the existing Chessboard. The first attempt used
-the hard `checker` modulation, which returns 0 or 1: the board had exactly two
-hole sizes, 50/50, and no transition anywhere, while the existing one grades
-through about thirty. This one grades through seventeen, and its large-hole runs
-measure 250mm against the existing 255. Every joint is asserted hole for hole -
-each fade panel inner edge against the board, its outer edge against a plain
-12.5 field, every hole on that edge exactly 12.5.
+Saved: `Chess 50 board`, four fades - `fade right` / `left` / `down` / `up` -
+and four corners - `corner TL` / `TR` / `BL` / `BR`. Nine panels, laid out as
+
+    [corner TL][fade up  ][corner TR]
+    [fade left][  board  ][fade right]
+    [corner BL][fade down][corner BR]
+
+on the lattice and sizes asked for - stagger, pitch 50, 12.5 to 35mm - but
+driven by the SAME crossed-wave field as the existing Chessboard. The first
+attempt used the hard `checker` modulation, which returns 0 or 1: the board had
+exactly two hole sizes, 50/50, and no transition anywhere, while the existing
+one grades through about thirty. This one grades through seventeen, and its
+large-hole runs measure 250mm against the existing 255.
+
+A corner is the fade layer with **turn the corner** on: it keeps the pattern at
+its inner corner and fades toward the outer one, so its two inner edges carry
+the same profiles as the fades beside it. All four differ. Every joint is
+asserted hole for hole - each fade inner edge against the board, each corner
+inner edge against the two fades it meets, and every outer edge flat at 12.5.
 
 ## Transition panels
 
