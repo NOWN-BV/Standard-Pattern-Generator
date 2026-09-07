@@ -821,3 +821,55 @@ console.log('all smoke checks passed');
   }
   console.log('the fade curve holds the pattern longer without moving either end');
 }
+
+// -- a border, so any panel meets any other ---------------------------------
+//
+// A fade is a gradient across a panel. This is the outermost ring of holes and
+// nothing else: counted in rows, so that ring lands on EXACTLY the small hole
+// size while the row just inside it is untouched pattern. That is what lets a
+// patterned panel present a plain edge without softening the pattern to reach
+// it - and it means any two panels carrying the border butt together.
+{
+  const B = {
+    cols: 1, rows: 1, lattice: 'stagger', latticeAspect: 100, pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 35, modulation: 'blocks', crossKx: 2, crossKy: 4, crossSharp: 100,
+    gamma: 0.45, sizeContrast: 100, modScope: 'run', tiling: 'P4', driverScope: 'panel', cull: 0,
+  };
+  const bordered = {
+    ...B, taper: 100, taperTarget: 'size', taperDriver: 'border',
+    taperScope: 'wall', taperDir: '', taperRings: 1,
+  };
+  const edge = (f, w) => {
+    const xs = [...new Set(f.holes.map((h) => +h.cx.toFixed(3)))].sort((a, b) => a - b);
+    const ys = [...new Set(f.holes.map((h) => +h.cy.toFixed(3)))].sort((a, b) => a - b);
+    const pick = {
+      top: (h) => Math.abs(h.cy - ys[0]) < 1e-6,
+      bottom: (h) => Math.abs(h.cy - ys[ys.length - 1]) < 1e-6,
+      left: (h) => Math.abs(h.cx - xs[0]) < 1e-6,
+      right: (h) => Math.abs(h.cx - xs[xs.length - 1]) < 1e-6,
+    }[w];
+    const k = w === 'top' || w === 'bottom' ? 'cx' : 'cy';
+    return f.holes.filter(pick).sort((a, b) => a[k] - b[k])
+      .map((h) => h[k].toFixed(3) + '@' + (2 * h.r).toFixed(4)).join('|');
+  };
+  const plain = buildField({ ...B, modulation: 'uniform', maxDia: 12.5 });
+  const bare = buildField(B);
+  const f = buildField(bordered);
+
+  for (const w of ['left', 'right', 'top', 'bottom'])
+    assert.equal(edge(f, w), edge(plain, w), `the ${w} ring must be exactly the small size`);
+
+  // and the pattern inside is untouched - a border is not a fade
+  const inner = (g) => g.holes
+    .filter((h) => h.cx > 0.01 && h.cx < PANEL.moduleW - 0.01 && h.cy > 0.01 && h.cy < PANEL.moduleH - 0.01)
+    .map((h) => h.cx.toFixed(2) + ',' + h.cy.toFixed(2) + ',' + (2 * h.r).toFixed(3))
+    .sort().join('|');
+  assert.equal(inner(f), inner(bare), 'a border must not touch the pattern inside it');
+
+  // two rings reaches one row further in, and still lands on the boundary
+  const two = buildField({ ...bordered, taperRings: 2 });
+  assert.equal(edge(two, 'left'), edge(plain, 'left'), 'two rings still ends on the boundary');
+  assert.notEqual(inner(two), inner(bare), 'and two rings does reach further in');
+
+  console.log('a border ring lands on the small size without touching the pattern inside');
+}

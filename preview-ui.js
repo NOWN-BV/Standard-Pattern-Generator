@@ -680,7 +680,7 @@ const SPEC = [
     key: 'taperDriver',
     kind: 'select',
     label: 'fade shape',
-    options: () => ['ramp', 'linear', 'band',
+    options: () => ['ramp', 'border', 'linear', 'band',
       'radial', 'wave', 'noise', 'lattice', 'chevron', 'blocks', 'random', 'even'],
     when: (st) => st.taper > 0,
   },
@@ -746,6 +746,15 @@ const SPEC = [
     max: 24,
     step: 1,
     when: (st) => st.taper > 0 && ['lattice', 'chevron', 'blocks'].includes(st.taperDriver),
+  },
+  {
+    key: 'taperRings',
+    kind: 'range',
+    label: 'border rows',
+    min: 1,
+    max: 6,
+    step: 1,
+    when: (st) => st.taper > 0 && st.taperDriver === 'border',
   },
   {
     key: 'taperGamma',
@@ -1541,6 +1550,8 @@ const TIPS = {
   taperKx:
     'How many cycles of the fade lattice fit across the frame it is measured on - the tiling unit, or the whole wall. Whole numbers only, which is what keeps it seamless.',
   taperKy: 'Cycles down the frame. Twice the across value gives a 45 degree diagonal.',
+  taperRings:
+    'How many rows in from each edge the BORDER reaches. 1 is the boundary ring on its own: that ring lands on exactly the small hole size and the row just inside it is untouched pattern.',
   taperGamma:
     'How the fade is PACED, not how far it goes. 1 is straight, which starts taking the pattern apart at the first row - by mid panel the sizes have closed up and there is only a gradient left. Above 1 holds them apart across most of the panel and gives way near the joint, so the pattern keeps its character on the way out. It cannot break a joint: the inner edge is still untouched and the outer edge still lands on exactly the small hole size.',
   taperSharp:

@@ -428,6 +428,9 @@ export const DEFAULTS = {
   // out; below 1 lets go early. It cannot break a joint - 0 and 1 are fixed
   // points of any power.
   taperGamma: 1,
+  // How many rows deep the 'border' fade reaches in from each edge. 1 is the
+  // boundary ring alone.
+  taperRings: 1,
   taperSharp: 100,
   // Measured across ONE PANEL TILE by default, so the fade repeats with the
   // tiling and a faded run stays a repeating kit. 'wall' measures across the
@@ -1667,6 +1670,21 @@ function taperFieldAt(x0, y0, p, f) {
     // here is a function of position and lands near that, not on it.
     case 'ramp':
       return rampCount(x, y, nw, nh, a, p);
+    // A BORDER, NOT A FADE.
+    //
+    // A fade is a gradient across the panel; this is the outermost ring of
+    // holes and nothing else. Counted in rows, so the ring on the boundary is
+    // fully faded and lands on EXACTLY the small hole size while the row just
+    // inside it is untouched pattern - which is what lets a patterned panel
+    // present a plain edge to whatever it butts against without softening the
+    // pattern to get there. Rings widens it inward a whole row at a time.
+    case 'border': {
+      const ix = latticeIndex(x, y, nw, nh, p);
+      if (!ix) return 0;
+      const d = Math.min(ix.i, ix.nx - ix.i, ix.j, ix.ny - ix.j);
+      const rings = Math.max(1, Math.round(p.taperRings ?? 1));
+      return clamp(1 - d / rings, 0, 1);
+    }
     case 'radial': {
       // 0 at the centre, 1 at the corners - a vignette. 'invert' turns it into
       // a fade that eats outward from the middle instead.
@@ -2042,8 +2060,28 @@ function imageAt(x, y, p, f) {
  * against. Measuring in millimetres gets near the ends and lands on them only
  * by luck.
  */
-function rampCount(x, y, nw, nh, a, p) {
+/**
+ * Which row and column a point falls on, and how many there are across the
+ * span. Shared by everything that has to land exactly on a line of holes
+ * rather than near one.
+ */
+function latticeIndex(x, y, nw, nh, p) {
   const sp = latticeSpacing(p);
+  // A staggered lattice offsets alternate rows by half a pitch, so along that
+  // axis the holes sit half a pitch apart. Only the axis carrying the stagger
+  // is halved, and on a transposed lattice that is y.
+  const fo = Math.abs((sp.offset ?? 0) % 1);
+  const side = Math.min(fo, 1 - fo);
+  const staggered = sp.offset && side > 0;
+  const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
+  const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
+  if (!(stepX > 0) || !(stepY > 0) || !(nw > 0) || !(nh > 0)) return null;
+  const nx = Math.max(1, Math.round(nw / stepX));
+  const ny = Math.max(1, Math.round(nh / stepY));
+  return { i: clamp(Math.round(x / stepX), 0, nx), j: clamp(Math.round(y / stepY), 0, ny), nx, ny };
+}
+
+function rampCount(x, y, nw, nh, a, p) {
   const c = Math.cos(a);
   const s = Math.sin(a);
   // THE STEP IS BETWEEN DISTINCT POSITIONS, NOT BETWEEN LATTICE CELLS.
@@ -2053,16 +2091,10 @@ function rampCount(x, y, nw, nh, a, p) {
   // offset hole onto its neighbour's index and the ramp came out in PAIRS of
   // identical lines - a doubled line at every step. Only the axis carrying the
   // stagger is halved, and on a transposed lattice that is y.
-  const fo = Math.abs((sp.offset ?? 0) % 1);
-  const side = Math.min(fo, 1 - fo);
-  const staggered = sp.offset && side > 0;
-  const stepX = staggered && !sp.vertical ? sp.px * side : sp.px;
-  const stepY = staggered && sp.vertical ? sp.py * side : sp.py;
-  if (!(stepX > 0) || !(stepY > 0) || !(nw > 0) || !(nh > 0)) return 0.5;
-  const nx = Math.max(1, Math.round(nw / stepX));
-  const ny = Math.max(1, Math.round(nh / stepY));
-  let u = clamp(Math.round(x / stepX), 0, nx) / nx;
-  let v = clamp(Math.round(y / stepY), 0, ny) / ny;
+  const ix = latticeIndex(x, y, nw, nh, p);
+  if (!ix) return 0.5;
+  let u = ix.i / ix.nx;
+  let v = ix.j / ix.ny;
   if (c < 0) u = 1 - u;
   if (s < 0) v = 1 - v;
   // THE CORNER: WHAT JOINS AN ACROSS RUN TO A DOWN RUN.
