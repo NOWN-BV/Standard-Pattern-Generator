@@ -6065,7 +6065,7 @@
     "lineSeed": 5,
     "shapeAngleSeed": 3,
     "motifMm": 200,
-    "noiseDetail": 2,
+    "noiseDetail": 3,
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
@@ -6136,7 +6136,7 @@
     "zoom": 45,
     "presetId": "",
     "designName": "Dot blocks",
-    "savedAt": "2026-09-03T15:15:47.459Z"
+    "savedAt": "2026-09-07T11:53:58.502Z"
   },
   "Rhomb shear": {
     "cols": 4,
