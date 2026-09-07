@@ -5886,7 +5886,7 @@
     "latticeAngle": 0,
     "shape": "circle",
     "minDia": 9,
-    "maxDia": 23,
+    "maxDia": 21.25,
     "modulation": "wave",
     "modScope": "locked",
     "spanMm": 2400,
@@ -5985,7 +5985,8 @@
     "centerY": 0.5,
     "seamRule": "allow",
     "edgeInset": 0,
-    "designName": "Dot sawtooth"
+    "designName": "Dot sawtooth",
+    "savedAt": "2026-09-07T09:08:21.728Z"
   },
   "Dot sawtooth fine": {
     "cols": 4,
@@ -5998,7 +5999,7 @@
     "latticeAngle": 0,
     "shape": "circle",
     "minDia": 9,
-    "maxDia": 15,
+    "maxDia": 14,
     "modulation": "wave",
     "modScope": "locked",
     "spanMm": 2400,
@@ -6097,7 +6098,8 @@
     "centerY": 0.5,
     "seamRule": "allow",
     "edgeInset": 0,
-    "designName": "Dot sawtooth fine"
+    "designName": "Dot sawtooth fine",
+    "savedAt": "2026-09-07T09:08:21.728Z"
   },
   "Dot blocks": {
     "cols": 4,
