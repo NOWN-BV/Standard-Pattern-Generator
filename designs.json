@@ -8288,7 +8288,7 @@
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
-    "steps": 3,
+    "steps": 6,
     "jitter": 0,
     "tiling": "WALL",
     "driverScope": "panel",
@@ -8350,7 +8350,7 @@
     "seamRule": "allow",
     "edgeInset": 0,
     "designName": "Chess 50 board",
-    "savedAt": "2026-09-07T08:37:15.297Z"
+    "savedAt": "2026-09-07T08:42:59.561Z"
   },
   "Chess 50 fade right": {
     "cols": 1,
@@ -8411,7 +8411,7 @@
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
-    "steps": 3,
+    "steps": 6,
     "jitter": 0,
     "tiling": "WALL",
     "driverScope": "panel",
@@ -8473,7 +8473,7 @@
     "seamRule": "allow",
     "edgeInset": 0,
     "designName": "Chess 50 fade right",
-    "savedAt": "2026-09-07T08:37:15.297Z"
+    "savedAt": "2026-09-07T08:42:59.561Z"
   },
   "Chess 50 fade left": {
     "cols": 1,
@@ -8534,7 +8534,7 @@
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
-    "steps": 3,
+    "steps": 6,
     "jitter": 0,
     "tiling": "WALL",
     "driverScope": "panel",
@@ -8596,7 +8596,7 @@
     "seamRule": "allow",
     "edgeInset": 0,
     "designName": "Chess 50 fade left",
-    "savedAt": "2026-09-07T08:37:15.297Z"
+    "savedAt": "2026-09-07T08:42:59.561Z"
   },
   "Chess 50 fade down": {
     "cols": 1,
@@ -8657,7 +8657,7 @@
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
-    "steps": 3,
+    "steps": 6,
     "jitter": 0,
     "tiling": "WALL",
     "driverScope": "panel",
@@ -8719,7 +8719,7 @@
     "seamRule": "allow",
     "edgeInset": 0,
     "designName": "Chess 50 fade down",
-    "savedAt": "2026-09-07T08:37:15.297Z"
+    "savedAt": "2026-09-07T08:42:59.561Z"
   },
   "Chess 50 fade up": {
     "cols": 1,
@@ -8780,7 +8780,7 @@
     "noiseRough": 50,
     "noiseAspect": 100,
     "noiseShear": 0,
-    "steps": 3,
+    "steps": 6,
     "jitter": 0,
     "tiling": "WALL",
     "driverScope": "panel",
@@ -8842,6 +8842,6 @@
     "seamRule": "allow",
     "edgeInset": 0,
     "designName": "Chess 50 fade up",
-    "savedAt": "2026-09-07T08:37:15.297Z"
+    "savedAt": "2026-09-07T08:42:59.561Z"
   }
 }

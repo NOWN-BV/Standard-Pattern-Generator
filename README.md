@@ -84,10 +84,12 @@ is, and that is where the fade lands now. A uniform design has not stated one,
 and fading toward min dia would do nothing there, so the floor still applies.
 
 Saved: `Chess 50 board` plus `fade right` / `left` / `down` / `up` - stagger,
-pitch 50, 12.5 and 35mm on a 150mm chequer. That square size matters: 4 fit
-across the module and 8 down, both even, so the chequer returns to the same
-phase at every joint. Every joint is asserted hole for hole - each fade panel
-inner edge against the board, its outer edge against a plain 12.5 field.
+pitch 50, 12.5 and 35mm on a 300mm chequer - the existing Chessboard measures
+about 255mm across. The square size is constrained: it is 50 x steps, and it
+must divide the module into an EVEN number of squares or the chequer changes
+phase at the joint, which leaves 50, 100, 150 and 300mm as the only choices.
+Every joint is asserted hole for hole - each fade panel inner edge against the
+board, its outer edge against a plain 12.5 field.
 
 ## Transition panels
 
