@@ -873,3 +873,73 @@ console.log('all smoke checks passed');
 
   console.log('a border ring lands on the small size without touching the pattern inside');
 }
+
+// -- whole blocks inside the panel, small holes on the boundaries -----------
+//
+// A plain cosine peaks at 0, so the blocks came out centred on the panel edges
+// and corners and every one was cut in half by the boundary. Half a period
+// across puts whole blocks inside instead - 2 across and 4 down at counts 2 and
+// 4 - and drops the troughs onto the boundary lines, which is where the small
+// holes have to be for the panels to meet.
+{
+  const B = {
+    cols: 1, rows: 1, lattice: 'stagger', latticeAspect: 100, pitch: 50, shape: 'circle',
+    minDia: 12.5, maxDia: 35, modulation: 'blocks', crossKx: 2, crossKy: 4, crossSharp: 100,
+    gamma: 0.45, sizeContrast: 100, modScope: 'run', tiling: 'P4', driverScope: 'panel', cull: 0,
+  };
+  const blobs = (rec) => {
+    const f = buildField(rec);
+    const ds = f.holes.map((h) => 2 * h.r);
+    const cut = (Math.min(...ds) + Math.max(...ds)) / 2;
+    const N = 48;
+    const M = 96;
+    const g = [];
+    for (let j = 0; j < M; j++) {
+      const row = [];
+      for (let i = 0; i < N; i++) {
+        const x = ((i + 0.5) * PANEL.moduleW) / N;
+        const y = ((j + 0.5) * PANEL.moduleH) / M;
+        let b = null;
+        let bd = 1e9;
+        for (const h of f.holes) {
+          const d = Math.hypot(h.cx - x, h.cy - y);
+          if (d < bd) { bd = d; b = h; }
+        }
+        row.push(2 * b.r >= cut ? 1 : 0);
+      }
+      g.push(row);
+    }
+    const seen = g.map((r) => r.map(() => false));
+    let n = 0;
+    for (let j = 0; j < M; j++)
+      for (let i = 0; i < N; i++) {
+        if (!g[j][i] || seen[j][i]) continue;
+        const st = [[i, j]];
+        seen[j][i] = true;
+        let sz = 0;
+        while (st.length) {
+          const [a, b2] = st.pop();
+          sz++;
+          for (const [da, db] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const p = a + da;
+            const q = b2 + db;
+            if (p < 0 || q < 0 || p >= N || q >= M) continue;
+            if (g[q][p] && !seen[q][p]) { seen[q][p] = true; st.push([p, q]); }
+          }
+        }
+        if (sz >= 8) n++;
+      }
+    return n;
+  };
+  assert.equal(blobs({ ...B, crossPhase: 180 }), 8, 'phase 180 must put eight whole blocks in the panel');
+  assert.ok(blobs({ ...B, crossPhase: 0 }) > 8, 'phase 0 cuts them on the edges, giving more pieces');
+
+  // and every square boundary carries the small hole
+  const f = buildField({ ...B, crossPhase: 180 });
+  const onLine = (sel) => [...new Set(f.holes.filter(sel).map((h) => +(2 * h.r).toFixed(3)))];
+  assert.deepEqual(onLine((h) => Math.abs(h.cx - 300) < 1e-6), [12.5], 'the centre line must be small holes');
+  for (const y of [300, 600, 900])
+    assert.deepEqual(onLine((h) => Math.abs(h.cy - y) < 1e-6), [12.5], `y=${y} must be small holes`);
+
+  console.log('eight whole blocks in the panel, small holes on every square boundary');
+}

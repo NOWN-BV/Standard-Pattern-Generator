@@ -9283,8 +9283,9 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense",
-    "savedAt": "2026-09-07T11:11:48.628Z",
-    "taperRings": 1
+    "savedAt": "2026-09-07T11:20:00.627Z",
+    "taperRings": 1,
+    "crossPhase": 180
   },
   "Block Dense fade right": {
     "cols": 1,

@@ -500,6 +500,10 @@ export const DEFAULTS = {
   // 0 blends them (soft, cloudy crossings); 100 takes the stronger of the two
   // (crisp bands with bright intersections, the argyle read).
   crossSharp: 100,
+  // Slides the blocks within the panel without changing their size. 0 centres
+  // them on the panel edges, which cuts every one in half; 180 puts whole
+  // blocks inside and the small holes on the boundary. See the blocks driver.
+  crossPhase: 0,
   blockAngle: 0, // turn the blocks driver, in degrees
   // NOISE READ IN SQUARES.
   //
@@ -2249,8 +2253,18 @@ function modulate(x, y, p, f) {
       const ba = rad(p.blockAngle ?? 0);
       const rx = ba === 0 ? x : x * Math.cos(ba) + y * Math.sin(ba);
       const ry = ba === 0 ? y : -x * Math.sin(ba) + y * Math.cos(ba);
-      const gx = 0.5 + 0.5 * Math.cos((2 * Math.PI * kx * rx) / per.w);
-      const gy = 0.5 + 0.5 * Math.cos((2 * Math.PI * ky * ry) / per.h);
+      // WHERE THE BLOCKS SIT IN THE PANEL, NOT HOW BIG THEY ARE.
+      //
+      // A plain cosine peaks at 0, so the blocks come out CENTRED on the panel
+      // edges and corners and every one of them is cut in half by the
+      // boundary. Half a period across puts whole blocks inside the panel
+      // instead - 2 across and 4 down on a 600 x 1200 module at counts 2 and 4
+      // - and drops the troughs, the small holes, onto the boundary lines
+      // where the panels meet. 0 leaves existing designs exactly where they
+      // were; 180 is the shift.
+      const ph = rad(p.crossPhase ?? 0);
+      const gx = 0.5 + 0.5 * Math.cos((2 * Math.PI * kx * rx) / per.w + ph);
+      const gy = 0.5 + 0.5 * Math.cos((2 * Math.PI * ky * ry) / per.h + ph);
       const sharp = clamp(p.crossSharp ?? 100, 0, 100) / 100;
       // At sharp 0 the two waves simply average, which softens the grid into a
       // quilt; at 100 min() makes the dark lines crisp and continuous.
