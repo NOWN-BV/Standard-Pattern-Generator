@@ -9413,8 +9413,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense fade right",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense fade left": {
     "cols": 1,
@@ -9542,8 +9545,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense fade left",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense fade down": {
     "cols": 1,
@@ -9671,8 +9677,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense fade down",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense fade up": {
     "cols": 1,
@@ -9800,8 +9809,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense fade up",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense corner TR": {
     "cols": 1,
@@ -9929,8 +9941,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense corner TR",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense corner TL": {
     "cols": 1,
@@ -10058,8 +10073,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense corner TL",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense corner BR": {
     "cols": 1,
@@ -10187,8 +10205,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense corner BR",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Block Dense corner BL": {
     "cols": 1,
@@ -10316,8 +10337,11 @@
     "zoom": 140,
     "presetId": "",
     "designName": "Block Dense corner BL",
-    "savedAt": "2026-09-07T10:15:52.572Z",
-    "taperGamma": 2.2
+    "savedAt": "2026-09-07T11:24:41.696Z",
+    "taperRings": 1,
+    "crossPhase": 180,
+    "taperGamma": 2.2,
+    "taperBorder": 1
   },
   "Argyle weave": {
     "cols": 4,

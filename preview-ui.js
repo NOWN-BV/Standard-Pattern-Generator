@@ -758,6 +758,15 @@ const SPEC = [
     when: (st) => st.taper > 0 && ['lattice', 'chevron', 'blocks'].includes(st.taperDriver),
   },
   {
+    key: 'taperBorder',
+    kind: 'range',
+    label: 'plus border rows',
+    min: 0,
+    max: 4,
+    step: 1,
+    when: (st) => st.taper > 0 && st.taperDriver !== 'border',
+  },
+  {
     key: 'taperRings',
     kind: 'range',
     label: 'border rows',
@@ -1560,6 +1569,8 @@ const TIPS = {
   taperKx:
     'How many cycles of the fade lattice fit across the frame it is measured on - the tiling unit, or the whole wall. Whole numbers only, which is what keeps it seamless.',
   taperKy: 'Cycles down the frame. Twice the across value gives a 45 degree diagonal.',
+  taperBorder:
+    'Forces the outermost rings to the small hole size ON TOP of whatever the fade is doing. A fade is 0 at its inner edge, which is full pattern - but once the panel it meets there carries a plain 12.5 ring, this one needs the same ring to match it. 0 is off.',
   taperRings:
     'How many rows in from each edge the BORDER reaches. 1 is the boundary ring on its own: that ring lands on exactly the small hole size and the row just inside it is untouched pattern.',
   taperGamma:

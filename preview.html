@@ -579,6 +579,9 @@ const DEFAULTS = {
   // How many rows deep the 'border' fade reaches in from each edge. 1 is the
   // boundary ring alone.
   taperRings: 1,
+  // Rings of the boundary forced fully faded ON TOP of whatever the fade shape
+  // is doing, so a fade panel can also present a plain edge. 0 is off.
+  taperBorder: 0,
   taperSharp: 100,
   // Measured across ONE PANEL TILE by default, so the fade repeats with the
   // tiling and a faded run stays a repeating kit. 'wall' measures across the
@@ -1937,6 +1940,24 @@ function taperAt(x, y, p, f) {
   let u = p.taperInvert ? 1 - v : v;
   const tg = Math.max(0.05, p.taperGamma ?? 1);
   if (tg !== 1) u = Math.pow(clamp(u, 0, 1), tg);
+  // A BORDER ON TOP OF WHATEVER THE FADE IS DOING.
+  //
+  // Once the field it butts against carries a 12.5 ring, a fade panel needs one
+  // too - its INNER edge meets that ring, and a fade is 0 there, which is full
+  // pattern. Taking the larger of the two gives the panel both: the boundary
+  // ring lands on the small size on all four sides, and the fade runs normally
+  // everywhere inside it.
+  const bRings = Math.max(0, Math.round(p.taperBorder ?? 0));
+  if (bRings > 0) {
+    // Measured on the same frame the fade is, so the ring lands on the panel
+    // edge rather than somewhere near it.
+    const bf = taperFrame(x, y, p, f);
+    const bi = latticeIndex(bf.x, bf.y, bf.w, bf.h, p);
+    if (bi) {
+      const d = Math.min(bi.i, bi.nx - bi.i, bi.j, bi.ny - bi.j);
+      u = Math.max(u, clamp(1 - d / bRings, 0, 1));
+    }
+  }
   const s = amount * u;
   // QUANTISE, same reason as t. Wrapping a large wall coordinate back into the
   // tiling unit leaves ~1e-15 of float error, so the identical local point on
@@ -5722,6 +5743,15 @@ const SPEC = [
     when: (st) => st.taper > 0 && ['lattice', 'chevron', 'blocks'].includes(st.taperDriver),
   },
   {
+    key: 'taperBorder',
+    kind: 'range',
+    label: 'plus border rows',
+    min: 0,
+    max: 4,
+    step: 1,
+    when: (st) => st.taper > 0 && st.taperDriver !== 'border',
+  },
+  {
     key: 'taperRings',
     kind: 'range',
     label: 'border rows',
@@ -6524,6 +6554,8 @@ const TIPS = {
   taperKx:
     'How many cycles of the fade lattice fit across the frame it is measured on - the tiling unit, or the whole wall. Whole numbers only, which is what keeps it seamless.',
   taperKy: 'Cycles down the frame. Twice the across value gives a 45 degree diagonal.',
+  taperBorder:
+    'Forces the outermost rings to the small hole size ON TOP of whatever the fade is doing. A fade is 0 at its inner edge, which is full pattern - but once the panel it meets there carries a plain 12.5 ring, this one needs the same ring to match it. 0 is off.',
   taperRings:
     'How many rows in from each edge the BORDER reaches. 1 is the boundary ring on its own: that ring lands on exactly the small hole size and the row just inside it is untouched pattern.',
   taperGamma:
