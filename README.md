@@ -83,13 +83,15 @@ butts against. A design that states a size RANGE has said where its small end
 is, and that is where the fade lands now. A uniform design has not stated one,
 and fading toward min dia would do nothing there, so the floor still applies.
 
-Saved: `Chess 50 board` plus `fade right` / `left` / `down` / `up` - stagger,
-pitch 50, 12.5 and 35mm on a 300mm chequer - the existing Chessboard measures
-about 255mm across. The square size is constrained: it is 50 x steps, and it
-must divide the module into an EVEN number of squares or the chequer changes
-phase at the joint, which leaves 50, 100, 150 and 300mm as the only choices.
-Every joint is asserted hole for hole - each fade panel inner edge against the
-board, its outer edge against a plain 12.5 field.
+Saved: `Chess 50 board` plus `fade right` / `left` / `down` / `up`, on the
+lattice and sizes asked for - stagger, pitch 50, 12.5 to 35mm - but driven by
+the SAME crossed-wave field as the existing Chessboard. The first attempt used
+the hard `checker` modulation, which returns 0 or 1: the board had exactly two
+hole sizes, 50/50, and no transition anywhere, while the existing one grades
+through about thirty. This one grades through seventeen, and its large-hole runs
+measure 250mm against the existing 255. Every joint is asserted hole for hole -
+each fade panel inner edge against the board, its outer edge against a plain
+12.5 field, every hole on that edge exactly 12.5.
 
 ## Transition panels
 

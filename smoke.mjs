@@ -665,7 +665,8 @@ console.log('all smoke checks passed');
 {
   const B = {
     cols: 1, rows: 1, pitch: 50, lattice: 'stagger', shape: 'circle',
-    minDia: 12.5, maxDia: 35, modulation: 'checker', steps: 6, modScope: 'run',
+    minDia: 12.5, maxDia: 35, modulation: 'lattice', crossKx: 1, crossKy: 2,
+    crossSharp: 0, wavelength: 420, modAngle: 45, modScope: 'run', tiling: 'P1',
     gamma: 1, sizeLevels: 1, sizeContrast: 0, cull: 0, tiling: 'WALL',
   };
   const fade = (angle) => ({
