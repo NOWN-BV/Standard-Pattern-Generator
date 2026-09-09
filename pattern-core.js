@@ -364,7 +364,7 @@ export const DEFAULTS = {
   noiseShear: 0, // integer skew; whole steps keep it tileable
   steps: 5,
   jitter: 0, // always 0 - the pattern is always on grid
-  tiling: 'P4', // P1 | P4 | WALL - see tileSample()
+  tiling: 'P4', // P1 | P4 | P4R | WALL - see tileSample()
   // WHAT THE PATTERN DRIVER SPANS - see driverPeriod().
   //
   // 'panel' is how this has always worked: the driver is sampled on one 600 x
@@ -1178,6 +1178,17 @@ export function tileVariant(tiling, panelCol, panelRow) {
   // value is quantised at source, identical values give identical verdicts.
   // That is what makes the match exact rather than merely close; an earlier
   // version of this had neither fix, which is why the boundaries drifted.
+  // P4R IS THE SAME FOUR TILES LAID IN A LINE.
+  //
+  // P4 puts them in a 2x2 block, which is right for a field that covers a wall
+  // but wrong for a panel that is one row tall. A transition is exactly that -
+  // it cannot repeat vertically, so its row only ever reaches two of the four
+  // and a run of them reads A B A B, a two-panel loop anyone can see. Cycling
+  // on the column instead gives all four across, and costs nothing: every tile
+  // still falls back to the shared field at its edges, so any of them still
+  // butts any other, and the rank population is the same four seeds either way,
+  // so a P4R panel still meets a P4 one.
+  if (tiling === 'P4R') return (((panelCol % 4) + 4) % 4);
   if (tiling !== 'P4') return 0;
   const c = ((panelCol % 2) + 2) % 2;
   const r = ((panelRow % 2) + 2) % 2;
@@ -1205,6 +1216,7 @@ export function tileBlend(x, y, width) {
 
 /** Which of the four tiles a panel is. P1 / WALL are a single tile. */
 export function tileLabelFor(tiling, col, row) {
+  if (tiling === 'P4R') return 'ABCD'[(((col % 4) + 4) % 4)];
   if (tiling !== 'P4') return 'A';
   const c = ((col % 2) + 2) % 2;
   const r = ((row % 2) + 2) % 2;
@@ -1683,6 +1695,7 @@ const TAPER_DIRS = {
 /** Panels across and down in one repeat of a tiling. P4 is a 2x2 block. */
 export function tileUnit(tiling) {
   if (tiling === 'P4') return { cols: 2, rows: 2 };
+  if (tiling === 'P4R') return { cols: 4, rows: 1 };
   return { cols: 1, rows: 1 };
 }
 
@@ -3115,7 +3128,7 @@ export function buildField(params) {
     // makes the edge match exactly: two holes on two different tiles that share
     // a field value get the same verdict, which per-tile thresholds would not
     // guarantee.
-    const variants = p.tiling === 'P4' ? 4 : 1;
+    const variants = p.tiling === 'P4' || p.tiling === 'P4R' ? 4 : 1;
     let fellBack = false;
 
     const fieldFor = (seedOffset) => {
@@ -3823,7 +3836,7 @@ function buildPackedField(p, f, panels) {
     for (const c of pack) {
       // Mirror within the panel for P4, so B/C/D differ from A while every
       // edge still matches (the pack is periodic, so a mirror preserves that).
-      const mirrorX = p.tiling === 'P4' && pn.col % 2 === 1;
+      const mirrorX = (p.tiling === 'P4' || p.tiling === 'P4R') && pn.col % 2 === 1;
       const mirrorY = p.tiling === 'P4' && pn.row % 2 === 1;
       const lx = mirrorX ? PANEL.moduleW - c.x : c.x;
       const ly = mirrorY ? PANEL.moduleH - c.y : c.y;

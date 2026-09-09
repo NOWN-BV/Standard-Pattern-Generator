@@ -1331,10 +1331,14 @@ console.log('all smoke checks passed');
     for (const name of Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-'))) {
       const d = DESIGNS[name];
       const ref = partOf(d, 1, 1);
+      // 4x1 as well as 2x2: a P4R design needs four columns to show all four
+      // of its tiles, and a P4 one needs two rows.
       for (const [c, r] of [
         [2, 2],
         [4, 1],
         [3, 3],
+        [4, 2],
+        [8, 1],
       ]) {
         assert.equal(partOf(d, c, r), ref, `${name}: tile A is a different part at ${c}x${r}`);
       }
@@ -1368,7 +1372,6 @@ console.log('all smoke checks passed');
       'shape',
       'minDia',
       'maxDia',
-      'tiling',
       'tileBlendMm',
     ];
     for (const FAM of FAMILIES) {
@@ -1378,6 +1381,17 @@ console.log('all smoke checks passed');
         7,
         `${FAM} is three levels and four transitions, found ${fam.length}: ${fam}`
       );
+      // TILING IS NOT PART OF THE FIELD. What must match is that all four
+      // tiles exist, since the removal threshold is ranked over the four seeds
+      // together - P4 lays them in a 2x2 block, P4R in a line. A transition is
+      // one panel tall, so a 2x2 only ever reaches two of them and a run reads
+      // A B A B; P4R gives it all four across. Either way every tile falls back
+      // to the shared field at its edges, so the two still meet.
+      for (const n of fam)
+        assert.ok(
+          DESIGNS[n].tiling === 'P4' || DESIGNS[n].tiling === 'P4R',
+          `${n} lays ${DESIGNS[n].tiling}, which is not four tiles`
+        );
       const ref = DESIGNS[fam[0]];
       for (const n of fam)
         for (const f of CLOUD)

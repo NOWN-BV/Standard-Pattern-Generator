@@ -261,7 +261,8 @@ const SPEC = [
     key: 'tiling',
     kind: 'select',
     label: 'panel tiling',
-    options: () => ['P4', 'P1', 'WALL'],
+    options: () => ['P4', 'P4R', 'P1', 'WALL'],
+    labels: (v) => (v === 'P4R' ? 'P4 in a row' : v),
   },
   // Pitch is entered in mm but SNAPPED to an achievable lattice (600 / even n)
   // so a hole centre always lands on a panel joint. The readout shows the
@@ -999,7 +1000,7 @@ const SPEC = [
     max: 400,
     step: 10,
     unit: 'mm',
-    when: (st) => st.tiling === 'P4',
+    when: (st) => st.tiling === 'P4' || st.tiling === 'P4R',
   },
   {
     key: 'cullSeed',
