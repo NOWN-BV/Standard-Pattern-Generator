@@ -18,7 +18,7 @@
 // shape-paths has no imports of its own, so this is a leaf dependency and not
 // a cycle. Needed because the area of a rounded hole is measured on the very
 // points it is cut from rather than from a formula.
-import { shapeVerts, ringArea } from './shape-paths.js';
+import { shapeVerts, ringArea, straightRun } from './shape-paths.js';
 
 export const PANEL = {
   faceW: 596, // INNER_W - perforated face
@@ -293,6 +293,14 @@ export const DEFAULTS = {
   // to belong, not enough to stop being a hexagon. It applies only while
   // shapeMorph is on; set the two equal for one light fillet everywhere.
   shapeMorphMax: 10,
+  // WHEN A FILLETED SHAPE HAS BECOME A CIRCLE, CALL IT ONE.
+  //
+  // Rounded far enough, what is left between one fillet and the next is a flat
+  // of a few hundredths of a millimetre - invisible, uncuttable, and still
+  // written out as a dozen vertices and a dozen arcs. Below this it is emitted
+  // as a circle instead: one entity, the size it was specified at, and no
+  // pretending. In millimetres, because that is what the flat is.
+  circleSnapMm: 0.2,
   shapeCurve: 1,
   // Driven the same way ratioMax drives the proportion: 0 leaves the curve
   // fixed, above 0 it runs from shapeCurve to this across the field.
@@ -3693,6 +3701,15 @@ export function buildField(params) {
         // small end, a light one at the large, running between them the same
         // way the size does.
         c.morph = 1 - (dm + (dmTop - dm) * u);
+        // Rounded so far that the flats have gone: it IS a circle, so say so
+        // and let it be cut as one. Nothing downstream needs a special case -
+        // the writers, the area and the preview all already know what a circle
+        // is - and a fully rounded hole stops costing twelve arcs to describe.
+        const snap = Math.max(0, p.circleSnapMm ?? 0);
+        if (snap > 0 && straightRun(c.type, c.morph) * c.r <= snap) {
+          c.type = 'circle';
+          c.morph = undefined;
+        }
       }
       if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }

@@ -337,6 +337,36 @@ export function ringArea(verts) {
   return Math.abs(s2 / 2 + seg);
 }
 
+/**
+ * The longest STRAIGHT run left between two fillets, for a unit radius.
+ *
+ * Once the fillets have eaten nearly all of every edge, what is left is a
+ * circle with a few hundredths of a millimetre of flat on it - and it is still
+ * being written out as a dozen vertices and a dozen arcs, which is a lot of
+ * file for a shape that has a name. Measuring the run says when to stop
+ * pretending. Scales with r, so it is worked out once per shape and rounding.
+ */
+const runCache = new Map();
+export function straightRun(type, morph) {
+  if (!MORPHABLE.has(type)) return Infinity;
+  const m = Math.max(0, Math.min(1, morph ?? 1));
+  const key = type + ':' + m.toFixed(5);
+  const hit = runCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = shapeVerts(type, 0, 0, 1, { morph: m });
+  let longest = 0;
+  for (let i = 0; i < v.length; i++) {
+    const p1 = v[i];
+    if (p1.length > 2 && p1[2]) continue; // an arc, not a run
+    const p2 = v[(i + 1) % v.length];
+    longest = Math.max(longest, Math.hypot(p2[0] - p1[0], p2[1] - p1[1]));
+  }
+  // No arcs at all means nothing has been filleted - the shape is as drawn.
+  if (!v.some((q) => q.length > 2 && q[2])) longest = Infinity;
+  runCache.set(key, longest);
+  return longest;
+}
+
 export function shapeVerts(type, cx, cy, r, opts = {}) {
   let verts = [];
   switch (type) {

@@ -440,6 +440,14 @@ const DEFAULTS = {
   // to belong, not enough to stop being a hexagon. It applies only while
   // shapeMorph is on; set the two equal for one light fillet everywhere.
   shapeMorphMax: 10,
+  // WHEN A FILLETED SHAPE HAS BECOME A CIRCLE, CALL IT ONE.
+  //
+  // Rounded far enough, what is left between one fillet and the next is a flat
+  // of a few hundredths of a millimetre - invisible, uncuttable, and still
+  // written out as a dozen vertices and a dozen arcs. Below this it is emitted
+  // as a circle instead: one entity, the size it was specified at, and no
+  // pretending. In millimetres, because that is what the flat is.
+  circleSnapMm: 0.2,
   shapeCurve: 1,
   // Driven the same way ratioMax drives the proportion: 0 leaves the curve
   // fixed, above 0 it runs from shapeCurve to this across the field.
@@ -3840,6 +3848,15 @@ function buildField(params) {
         // small end, a light one at the large, running between them the same
         // way the size does.
         c.morph = 1 - (dm + (dmTop - dm) * u);
+        // Rounded so far that the flats have gone: it IS a circle, so say so
+        // and let it be cut as one. Nothing downstream needs a special case -
+        // the writers, the area and the preview all already know what a circle
+        // is - and a fully rounded hole stops costing twelve arcs to describe.
+        const snap = Math.max(0, p.circleSnapMm ?? 0);
+        if (snap > 0 && straightRun(c.type, c.morph) * c.r <= snap) {
+          c.type = 'circle';
+          c.morph = undefined;
+        }
       }
       if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }
@@ -4385,6 +4402,36 @@ function ringArea(verts) {
     seg += Math.sign(arc.sweep) * ((arc.r * arc.r) / 2) * (th - Math.sin(th));
   }
   return Math.abs(s2 / 2 + seg);
+}
+
+/**
+ * The longest STRAIGHT run left between two fillets, for a unit radius.
+ *
+ * Once the fillets have eaten nearly all of every edge, what is left is a
+ * circle with a few hundredths of a millimetre of flat on it - and it is still
+ * being written out as a dozen vertices and a dozen arcs, which is a lot of
+ * file for a shape that has a name. Measuring the run says when to stop
+ * pretending. Scales with r, so it is worked out once per shape and rounding.
+ */
+const runCache = new Map();
+function straightRun(type, morph) {
+  if (!MORPHABLE.has(type)) return Infinity;
+  const m = Math.max(0, Math.min(1, morph ?? 1));
+  const key = type + ':' + m.toFixed(5);
+  const hit = runCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = shapeVerts(type, 0, 0, 1, { morph: m });
+  let longest = 0;
+  for (let i = 0; i < v.length; i++) {
+    const p1 = v[i];
+    if (p1.length > 2 && p1[2]) continue; // an arc, not a run
+    const p2 = v[(i + 1) % v.length];
+    longest = Math.max(longest, Math.hypot(p2[0] - p1[0], p2[1] - p1[1]));
+  }
+  // No arcs at all means nothing has been filleted - the shape is as drawn.
+  if (!v.some((q) => q.length > 2 && q[2])) longest = Infinity;
+  runCache.set(key, longest);
+  return longest;
 }
 
 function shapeVerts(type, cx, cy, r, opts = {}) {
@@ -5942,6 +5989,16 @@ const SPEC = [
         s.shape === 'triangle' || s.shape === 'star'),
   },
   {
+    key: 'circleSnapMm',
+    kind: 'range',
+    label: 'call it a circle below',
+    min: 0,
+    max: 2,
+    step: 0.05,
+    unit: 'mm',
+    when: (s) => s.shapeMorph > 0,
+  },
+  {
     key: 'shapeCurve',
     kind: 'range',
     label: 'side curve',
@@ -7273,6 +7330,8 @@ const TIPS = {
     'FILLETS the SMALL holes toward circles while the large ones keep the full shape, so the gradient is carried by the change of shape as much as by the change of size - a hexagon perforation that dissolves into a dot screen rather than hexagons that merely shrink. It is a real fillet, one radius on every corner: the corners become arcs and the edges stay straight, unlike pulling the outline toward a circle, which leaves every corner a corner. At 0 every hole is the shape as drawn; at 100 the smallest hole is a plain circle of the same diameter.',
   shapeMorphMax:
     'How much fillet the LARGEST holes carry. At 0 they are the shape exactly as drawn, which is the honest end of the range and also the one that sticks out: every other hole has had its corners taken off by something, so the biggest reads as a different shape rather than the same one at the end of a ladder. A tenth is about 1.5mm of corner radius on a 35mm hexagon - enough to belong, not enough to stop being a hexagon. Set this equal to the small-hole figure for one light fillet across the whole field.',
+  circleSnapMm:
+    'A hole rounded far enough has only a sliver of straight edge left between one fillet and the next. Below this much of it the hole is emitted as a CIRCLE - one entity at the diameter it was specified at - instead of a dozen vertices and a dozen arcs describing something that is a circle in all but name. 0 turns it off and writes every hole as the polygon it came from.',
   shapeCurve:
     'How the two sides between the tips bend. 1 is straight - a plain rhombus. Below 1 they pinch inward and it reads as a playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The two end points stay sharp at every setting. Bowing out costs hole size: at 2 the shape is a circle, which on a square grid has to be root 2 smaller than the rhombus to keep the same web.',
   curveMax:

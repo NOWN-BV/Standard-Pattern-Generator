@@ -333,6 +333,16 @@ const SPEC = [
         s.shape === 'triangle' || s.shape === 'star'),
   },
   {
+    key: 'circleSnapMm',
+    kind: 'range',
+    label: 'call it a circle below',
+    min: 0,
+    max: 2,
+    step: 0.05,
+    unit: 'mm',
+    when: (s) => s.shapeMorph > 0,
+  },
+  {
     key: 'shapeCurve',
     kind: 'range',
     label: 'side curve',
@@ -1664,6 +1674,8 @@ const TIPS = {
     'FILLETS the SMALL holes toward circles while the large ones keep the full shape, so the gradient is carried by the change of shape as much as by the change of size - a hexagon perforation that dissolves into a dot screen rather than hexagons that merely shrink. It is a real fillet, one radius on every corner: the corners become arcs and the edges stay straight, unlike pulling the outline toward a circle, which leaves every corner a corner. At 0 every hole is the shape as drawn; at 100 the smallest hole is a plain circle of the same diameter.',
   shapeMorphMax:
     'How much fillet the LARGEST holes carry. At 0 they are the shape exactly as drawn, which is the honest end of the range and also the one that sticks out: every other hole has had its corners taken off by something, so the biggest reads as a different shape rather than the same one at the end of a ladder. A tenth is about 1.5mm of corner radius on a 35mm hexagon - enough to belong, not enough to stop being a hexagon. Set this equal to the small-hole figure for one light fillet across the whole field.',
+  circleSnapMm:
+    'A hole rounded far enough has only a sliver of straight edge left between one fillet and the next. Below this much of it the hole is emitted as a CIRCLE - one entity at the diameter it was specified at - instead of a dozen vertices and a dozen arcs describing something that is a circle in all but name. 0 turns it off and writes every hole as the polygon it came from.',
   shapeCurve:
     'How the two sides between the tips bend. 1 is straight - a plain rhombus. Below 1 they pinch inward and it reads as a playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The two end points stay sharp at every setting. Bowing out costs hole size: at 2 the shape is a circle, which on a square grid has to be root 2 smaller than the rhombus to keep the same web.',
   curveMax:

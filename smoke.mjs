@@ -1103,7 +1103,21 @@ console.log('all smoke checks passed');
   assert.ok(off.holes.every((h) => h.morph === undefined), 'off must not touch a hole');
   const on = buildField({ ...B, shapeMorph: 100 });
   const by = [...on.holes].sort((a, b) => a.r - b.r);
-  assert.ok(Math.abs(by[0].morph - 0) < 1e-6, 'the smallest hole must be fully rounded');
+  // The smallest is not merely rounded to morph 0 - it IS a circle, and is
+  // emitted as one. Rounded that far the flat left between two fillets is a
+  // few hundredths of a millimetre, so circleSnapMm turns it into a CIRCLE
+  // entity: one line of file instead of a dozen vertices and a dozen arcs
+  // describing a circle the long way round.
+  assert.equal(by[0].type, 'circle', 'the smallest hole must be cut as a circle');
+  assert.equal(by[0].morph, undefined, 'a circle carries no fillet');
+  {
+    // and turning the snap off leaves it as the polygon it came from
+    const raw = buildField({ ...B, shapeMorph: 100, circleSnapMm: 0 }).holes
+      .slice()
+      .sort((a, b) => a.r - b.r)[0];
+    assert.equal(raw.type, 'hex', 'with the snap off the smallest stays a polygon');
+    assert.ok(Math.abs(raw.morph) < 1e-6, 'and it is still fully rounded');
+  }
   // The largest keeps the SHAPE, but not a true point: a tenth of the fillet
   // stays on it, because a field where every hole but one has had its corners
   // taken off makes that one read as a different shape rather than the end of
@@ -1165,7 +1179,9 @@ console.log('all smoke checks passed');
     const m = new Map();
     for (const h of buildField({ ...B, minDia: 12.5, shapeMorph: 100, ...over }).holes) {
       const d = (h.r * 2).toFixed(2);
-      const f = (h.morph ?? 1).toFixed(3);
+      // A hole snapped to a circle carries no morph, and 0 is what it means:
+      // fully rounded is the bottom rung, not the top.
+      const f = (h.type === 'circle' ? 0 : h.morph ?? 1).toFixed(3);
       assert.ok(!m.has(d) || m.get(d) === f, `${d}mm came out with two different fillets`);
       m.set(d, f);
     }
