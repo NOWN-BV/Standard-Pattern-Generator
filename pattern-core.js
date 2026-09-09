@@ -3157,8 +3157,82 @@ export function buildField(params) {
       return shared * (1 - w) + own * w;
     });
     // Same reason as t: dust in the field values would break the ties that the
-    // pooled threshold relies on.
-    const pooled = quantileRank(raw.map((v) => Math.round(v * 1e9) / 1e9));
+    // threshold relies on.
+    const rounded = raw.map((v) => Math.round(v * 1e9) / 1e9);
+
+    // ── RANK ON ONE TILE UNIT, NOT ON WHATEVER IS ON SCREEN ──────────────
+    //
+    // The field values were already made tile-local above; the THRESHOLD was
+    // not. It came from ranking the candidates of the whole wall, and a wall
+    // does not hold a whole number of every point: a hole standing on a joint
+    // belongs to one panel, so it is counted once in a 2x2 and once in a 4x1 -
+    // but its neighbours are not, and under P4 the four tiles appear in
+    // whatever proportion the run happens to have. The rank of a given field
+    // value therefore moved with the arrangement, and so did the verdict.
+    //
+    // Measured before this: EVERY ONE of the 41 culled designs delivered a
+    // different panel depending on how many panels were on screen. 50-35-Noise
+    // 35% ran from 34.61 % open at 3x3 to 36.39 % at 1x1, and its joint row
+    // carried anywhere from 11 to 13 holes. A panel is a PART. It cannot depend
+    // on how many of it you happened to render, and two designs cannot be made
+    // to meet along an edge while it does - which is what this blocks.
+    //
+    // So the population is now one tile unit's worth, synthesised rather than
+    // sampled: every point of one panel, once for each tile, whether or not
+    // that tile is on screen. 'Remove 35 %' now means 35 % of a panel, always.
+    //
+    // WALL is deliberately left pooling over the run. There the design is not a
+    // tile at all - it is laid down once across the whole wall - so its
+    // population genuinely is every hole in it.
+    const rankOnTile = (() => {
+      if (p.tiling === 'WALL') return null;
+      const canon = [];
+      if (p.cullShape === 'pattern') {
+        // Ranking the DRIVER, which is not stored per tile, so the population
+        // is taken from the candidates - deduped by tile AND point, which is
+        // enough to make P1 exact. A P4 pattern-cull run that does not contain
+        // all four tiles still ranks on the tiles it has.
+        const seen = new Set();
+        for (const c of candidates) {
+          const k = `${c.variant ?? 0}|${key(c)}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          canon.push(Math.round(c.t * 1e9) / 1e9);
+        }
+      } else {
+        for (let i = 0; i < pts.length; i++) {
+          const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150);
+          for (let v = 0; v < fields.length; v++) {
+            canon.push(Math.round((fields[0][i] * (1 - w) + fields[v][i] * w) * 1e9) / 1e9);
+          }
+        }
+      }
+      if (canon.length < 2) return null;
+      const rk = quantileRank(canon);
+      const byValue = new Map();
+      for (let i = 0; i < canon.length; i++) if (!byValue.has(canon[i])) byValue.set(canon[i], rk[i]);
+      const sorted = [...byValue.keys()].sort((x, y) => x - y);
+      return (v) => {
+        const hit = byValue.get(v);
+        if (hit !== undefined) return hit;
+        // A value the population does not hold. It should not happen - every
+        // candidate is one of these points on one of these tiles - so rather
+        // than invent a rank, take the nearest one at or below it.
+        let lo = 0;
+        let hi = sorted.length - 1;
+        let best = 0;
+        while (lo <= hi) {
+          const m = (lo + hi) >> 1;
+          if (sorted[m] <= v) {
+            best = byValue.get(sorted[m]);
+            lo = m + 1;
+          } else hi = m - 1;
+        }
+        return best;
+      };
+    })();
+    stats.cullRankedOnTile = !!rankOnTile;
+    const pooled = rankOnTile ? rounded.map(rankOnTile) : quantileRank(rounded);
     cullFellBack = fellBack;
 
     for (let ci = 0; ci < candidates.length; ci++) {

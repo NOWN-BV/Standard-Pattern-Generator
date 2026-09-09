@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildField, LIMITS, PANEL, quantileRank } from './pattern-core.js';
+import { buildField, LIMITS, PANEL, quantileRank, tileLabelFor } from './pattern-core.js';
 import { PRESETS } from './presets.js';
 import { shapeVerts } from './shape-paths.js';
 import {
@@ -1149,25 +1149,40 @@ console.log('all smoke checks passed');
   assert.equal(ref.get('35.00'), '1.000', 'the stated large size must keep the shape');
   console.log('the fillet rides the size ladder - one diameter, one part');
 
-  // -- A DESIGN NAMED FOR ITS OPENNESS HAS TO DELIVER IT --------------------
+  // -- THE 50-35 FAMILY: ONE FIELD, THREE LEVELS, FOUR TRANSITIONS ---------
   //
-  // The 50-35 family carries its open area in its name, and the number is not
-  // decoration - it is what the panel is specified on. It is reached by culling
-  // a full 35mm hex field: every hole is the same size, so open area is just
-  // the base times the share of holes left standing, and one cull ladder covers
-  // the flat designs and both ends of every transition.
+  // The family is built on 50-35-Noise 35%: a uniform lattice at pitch 50 with
+  // a 35mm hexagon at every node, thinned by cloud removal to the open area in
+  // the name. The other two levels are the SAME cloud at a different threshold,
+  // which is the whole point - a panel of one has to meet a panel of another
+  // along its edge, and that only works if both sides decide the holes standing
+  // on the joint from the same field value.
   //
-  // This guard exists because the family HAS drifted once already. Changing the
-  // perforation from a circle to a hexagon took 17 % off every one of them at a
-  // stroke - a hexagon of circumradius r has area 2.598 r squared against the
-  // circle's 3.1416 - and nothing said a word: the design called 10 % quietly
-  // became 8.2 %. Any future change of shape, pitch or diameter will move these
-  // the same way, and now it fails here instead of at the fabricator.
+  // Three things are asserted, and each of them has failed at some point.
   {
     const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
     const face = PANEL.faceW * PANEL.faceH;
-    const named = { '50-35-Noise 35%': 35, '50-35-Noise 25%': 25, '50-35-Noise 10%': 10 };
-    for (const [name, want] of Object.entries(named)) {
+    const qq = (v) => Math.round(v * 1e4) / 1e4;
+    const joint = (f, i, side) => {
+      const out = [];
+      for (const { h, lx, ly } of panelHoles(f, f.panels[i])) {
+        if (side === 'B' && Math.abs(ly) < 0.5) out.push(`${qq(lx)},${qq(h.r)}`);
+        if (side === 'T' && Math.abs(ly - PANEL.moduleH) < 0.5) out.push(`${qq(lx)},${qq(h.r)}`);
+        if (side === 'L' && Math.abs(lx) < 0.5) out.push(`${qq(ly)},${qq(h.r)}`);
+        if (side === 'R' && Math.abs(lx - PANEL.moduleW) < 0.5) out.push(`${qq(ly)},${qq(h.r)}`);
+      }
+      return [...new Set(out)].sort().join('|');
+    };
+
+    // ONE: the name is the specification. Turning the perforation from a circle
+    // into a hexagon once took 17 % off every one of these and nothing said a
+    // word - the design called 10 % was delivering 8.2 %.
+    const rowOf = {};
+    for (const [name, want] of [
+      ['50-35-Noise 35%', 35],
+      ['50-35-Noise 25%', 25],
+      ['50-35-Noise 10%', 10],
+    ]) {
       const d = DESIGNS[name];
       assert.ok(d, `${name} is missing from designs.json`);
       const f = buildField({ ...d });
@@ -1176,23 +1191,95 @@ console.log('all smoke checks passed');
         Math.abs(got - want) < 0.5,
         `${name} is ${got.toFixed(2)} % open, and its name says ${want} %`
       );
+
+      // TWO: the P4 rule, strictly. All four tiles must decide the holes that
+      // STAND ON a joint identically, or a panel cut as one tile cannot butt
+      // against a panel cut as another. This is what tileBlendMm 0 broke: with
+      // no band to reconcile them the four tiles each ran their own field right
+      // up to the edge, and all four joints disagreed.
+      for (const side of ['B', 'T', 'L', 'R']) {
+        const rows = f.panels.map((_, i) => joint(f, i, side));
+        assert.ok(
+          rows.every((r) => r === rows[0]),
+          `${name}: the four tiles disagree on the ${side} joint`
+        );
+      }
+      const B = joint(f, 0, 'B');
+      assert.equal(joint(f, 0, 'T'), B, `${name}: top and bottom joints differ`);
+      assert.equal(joint(f, 0, 'R'), joint(f, 0, 'L'), `${name}: left and right joints differ`);
+      rowOf[want] = B;
     }
-    // and the ladder is one ladder: the transitions run between the same levels
-    const level = { 35: DESIGNS['50-35-Noise 35%'].cull, 25: DESIGNS['50-35-Noise 25%'].cull, 10: DESIGNS['50-35-Noise 10%'].cull };
-    const ends = {
-      '50-35-Noise 10-35 transition': [level[35], level[10]],
-      '50-35-Noise 10-25 transition': [level[25], level[10]],
-      '50-35-Noise 25-35 transition': [level[35], level[25]],
-      '50-35-Noise 10-solid transition': [level[10], 100],
-    };
-    for (const [name, [from, to]] of Object.entries(ends)) {
+
+    // THREE: a transition joins the two levels it is named for, hole for hole.
+    //
+    // It cannot be a tiling pattern to do it. Every driver here is wrapped on
+    // the panel, which makes the top row a copy of the bottom row - harmless
+    // for something that repeats, fatal for something whose entire job is to be
+    // different at each end. Only 'ramp' is left unwrapped, and it counts
+    // lattice rows, so it lands on exactly 0 at the bottom and exactly 1 at the
+    // top and the thresholds there are exactly the two levels.
+    for (const [name, bottom, top] of [
+      ['50-35-Noise 10-25 transition', 25, 10],
+      ['50-35-Noise 10-35 transition', 35, 10],
+      ['50-35-Noise 25-35 transition', 35, 25],
+      ['50-35-Noise 10-solid transition', 10, 0],
+    ]) {
       const d = DESIGNS[name];
       assert.ok(d, `${name} is missing from designs.json`);
-      assert.equal(d.cullFrom, from, `${name} starts off the ladder`);
-      assert.equal(d.cull, to, `${name} ends off the ladder`);
+      assert.equal(d.modulation, 'ramp', `${name} must ride a ramp - anything else wraps`);
+      const f = buildField({ ...d });
+      for (let i = 0; i < f.panels.length; i++) {
+        assert.equal(
+          joint(f, i, 'B'),
+          rowOf[bottom],
+          `${name} panel ${i}: the bottom does not meet the ${bottom} % pattern`
+        );
+        assert.equal(
+          joint(f, i, 'T'),
+          top === 0 ? '' : rowOf[top],
+          `${name} panel ${i}: the top does not meet ${top === 0 ? 'solid' : top + ' %'}`
+        );
+      }
+      // and it still tiles sideways, so a run of them is any length
+      const L = f.panels.map((_, i) => joint(f, i, 'L'));
+      assert.ok(L.every((r) => r === L[0]), `${name}: the tiles disagree on the left joint`);
+      assert.equal(joint(f, 0, 'R'), L[0], `${name}: left and right joints differ`);
     }
   }
-  console.log('the 50-35 family still delivers the open area in its name');
+  console.log('the 50-35 family: named open area, P4 joints, transitions that meet both levels');
+  // -- A PANEL IS A PART. IT CANNOT DEPEND ON HOW MANY YOU RENDERED -------
+  //
+  // The cull threshold used to be ranked over the candidates of the whole
+  // wall, and a wall holds no whole number of anything: a hole on a joint
+  // belongs to one panel, and under P4 the four tiles turn up in whatever
+  // proportion the run happens to have. So the rank of a field value moved
+  // with the arrangement and so did the verdict. Every one of the 41 culled
+  // designs delivered a different panel at 1x1 than at 3x3 - 50-35-Noise 35%
+  // ran from 34.6 % to 36.4 % open, its joint row carrying 11 holes or 13.
+  // Two designs cannot be made to meet along an edge while that is true.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    const partOf = (d, c, r) => {
+      const f = buildField({ ...d, cols: c, rows: r });
+      const pn = f.panels.find((x) => tileLabelFor(d.tiling, x.col, x.row) === 'A');
+      return panelHoles(f, pn)
+        .map(({ h, lx, ly }) => [lx, ly, h.r].map((v) => Math.round(v * 1e4)).join(','))
+        .sort()
+        .join('|');
+    };
+    for (const name of Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-Noise'))) {
+      const d = DESIGNS[name];
+      const ref = partOf(d, 1, 1);
+      for (const [c, r] of [
+        [2, 2],
+        [4, 1],
+        [3, 3],
+      ]) {
+        assert.equal(partOf(d, c, r), ref, `${name}: tile A is a different part at ${c}x${r}`);
+      }
+    }
+  }
+  console.log('a 50-35 panel is the same part however many panels are on screen');
 
 
 }
