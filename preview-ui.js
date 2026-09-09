@@ -1026,6 +1026,16 @@ const SPEC = [
     when: (st) => st.tiling === 'P4' || st.tiling === 'P4R',
   },
   {
+    key: 'tileEdgeMm',
+    kind: 'range',
+    label: 'identical edge band',
+    min: 0,
+    max: 200,
+    step: 5,
+    unit: 'mm',
+    when: (st) => st.tiling === 'P4' || st.tiling === 'P4R',
+  },
+  {
     key: 'cullSeed',
     kind: 'range',
     label: 'removal seed',

@@ -502,6 +502,16 @@ export const DEFAULTS = {
   // Width in mm over which a tile blends back to the shared edge field.
   // Smaller = tiles differ more; larger = safer, more similar tiles.
   tileBlendMm: 150,
+  // A BAND AT THE EDGE WHERE ALL FOUR TILES ARE THE SAME PANEL.
+  //
+  // tileBlendMm alone reconciles them only ON the joint - it starts rising the
+  // moment you step inside, so the first ring of holes already differs from
+  // tile to tile, and on the long edges most of it did: seven of the eleven
+  // holes a single row in. What you see where two panels meet is a band, not a
+  // line, and it has to read as one piece. Inside this distance of any edge
+  // every tile IS tile A; past it tileBlendMm takes over as before. The
+  // interior stays as different as it ever was, which is the point of P4.
+  tileEdgeMm: 0,
   // Presentation only - carried in the recipe so a saved design reopens looking
   // the same, and used by the SVG export. Never affects geometry.
   holeColor: '#ffffff',
@@ -1218,11 +1228,16 @@ export function tileVariant(tiling, panelCol, panelRow) {
  * Wider band = safer matching but more similar tiles. Narrower = more contrast
  * between tiles, reconciled in a tighter zone.
  */
-export function tileBlend(x, y, width) {
-  if (width <= 0) return 1;
+export function tileBlend(x, y, width, edge = 0) {
   const dx = Math.min(x, PANEL.moduleW - x);
   const dy = Math.min(y, PANEL.moduleH - y);
-  return smooth(clamp(Math.min(dx, dy) / width, 0, 1));
+  const d = Math.min(dx, dy);
+  // The flat band comes first and is absolute: inside it every tile is tile A,
+  // whatever the blend width is - including a width of 0, which otherwise means
+  // "no reconciliation at all".
+  if (edge > 0 && d <= edge + 1e-9) return 0;
+  if (width <= 0) return 1;
+  return smooth(clamp((d - Math.max(0, edge)) / width, 0, 1));
 }
 
 /** Which of the four tiles a panel is. P1 / WALL are a single tile. */
@@ -2763,7 +2778,7 @@ export function buildField(params) {
       // match. Without this the four tiles share one size field and are
       // identical whenever culling is off.
       const variant = tileVariant(p.tiling, hit.col, hit.row);
-      const blend = tileBlend(sp.x, sp.y, p.tileBlendMm ?? 150);
+      const blend = tileBlend(sp.x, sp.y, p.tileBlendMm ?? 150, p.tileEdgeMm ?? 0);
       let t;
       if (variant === 0 || blend <= 0) {
         t = clamp(modulate(dp.x, dp.y, p, f), 0, 1);
@@ -3241,7 +3256,7 @@ export function buildField(params) {
         }
       } else {
         for (let i = 0; i < pts.length; i++) {
-          const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150);
+          const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150, p.tileEdgeMm ?? 0);
           for (let v = 0; v < fields.length; v++) {
             canon.push(Math.round((fields[0][i] * (1 - w) + fields[v][i] * w) * 1e9) / 1e9);
           }
@@ -3298,7 +3313,7 @@ export function buildField(params) {
       for (const [k, idxs] of rowOfPt) {
         for (let v = 0; v < fields.length; v++) {
           const vals = idxs.map((i) => {
-            const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150);
+            const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150, p.tileEdgeMm ?? 0);
             return Math.round((fields[0][i] * (1 - w) + fields[v][i] * w) * 1e9) / 1e9;
           });
           // RANKED OVER n, NOT OVER n-1.
@@ -3321,19 +3336,21 @@ export function buildField(params) {
           byRow.set(k + '|' + v, m);
         }
       }
-      // NOT ON A SIDE JOINT, THOUGH.
+      // NOT IN THE EDGE BAND, THOUGH.
       //
-      // A hole standing on a vertical joint has the same field value on every
-      // tile - that is what makes the panels meet - but its rank WITHIN ITS ROW
-      // does not, because the rest of that row is interior and every tile draws
-      // its own. Evening those holes therefore split the four tiles apart and
-      // broke the side joints outright. They keep the shared rank instead. It
-      // costs one column of twenty-four, and nothing on the top or bottom rows,
-      // where the whole row is shared and the two rankings agree anyway.
-      const onSideJoint = (c) =>
-        Math.abs(c.sx) < 1e-6 || Math.abs(c.sx - PANEL.moduleW) < 1e-6;
+      // A hole near a panel edge has the same field value on every tile - that
+      // is what makes the panels meet - but its rank WITHIN ITS ROW does not,
+      // because the rest of that row is interior and every tile draws its own.
+      // Evening those holes splits the four tiles apart however well the field
+      // itself is reconciled, which is why the left edge still differed on
+      // seven of eleven holes a row in while the joint line matched exactly.
+      // They keep the shared rank instead. It costs the evening nothing that
+      // shows: the band is a fringe of the panel, and the fade lives inside it.
+      const band = Math.max(0, p.tileEdgeMm ?? 0);
+      const inEdgeBand = (c) =>
+        Math.min(c.sx, PANEL.moduleW - c.sx, c.sy, PANEL.moduleH - c.sy) <= band + 1e-6;
       pooled = candidates.map((c, i) => {
-        if (onSideJoint(c)) return pooledRaw[i];
+        if (inEdgeBand(c)) return pooledRaw[i];
         const m = byRow.get(Math.round(c.sy * 1e3) + '|' + (c.variant ?? 0));
         const r = m && m.get(rounded[i]);
         if (r === undefined) return pooledRaw[i];

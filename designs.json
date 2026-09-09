@@ -736,7 +736,7 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 20,
+    "cull": 21,
     "cullMode": "even",
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -768,7 +768,8 @@
     "presetId": "",
     "designName": "50-35-Noise 30%",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 10%": {
     "cols": 2,
@@ -792,7 +793,7 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 70,
+    "cull": 71,
     "cullMode": "even",
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -824,7 +825,8 @@
     "presetId": "",
     "designName": "50-35-Noise 10%",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 20%": {
     "cols": 2,
@@ -848,7 +850,7 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 44,
+    "cull": 46,
     "cullMode": "even",
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -880,7 +882,8 @@
     "presetId": "",
     "designName": "50-35-Noise 20%",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 10-30 transition": {
     "cols": 4,
@@ -904,9 +907,9 @@
     "jitter": 0,
     "tiling": "P4R",
     "seed": 7,
-    "cull": 70,
+    "cull": 71,
     "cullMode": "gradient",
-    "cullFrom": 20,
+    "cullFrom": 21,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -938,7 +941,8 @@
     "presetId": "",
     "designName": "50-35-Noise 10-30 transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 10-20 transition": {
     "cols": 4,
@@ -962,9 +966,9 @@
     "jitter": 0,
     "tiling": "P4R",
     "seed": 7,
-    "cull": 70,
+    "cull": 71,
     "cullMode": "gradient",
-    "cullFrom": 44,
+    "cullFrom": 46,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -996,7 +1000,8 @@
     "presetId": "",
     "designName": "50-35-Noise 10-20 transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 20-30 transition": {
     "cols": 4,
@@ -1020,9 +1025,9 @@
     "jitter": 0,
     "tiling": "P4R",
     "seed": 7,
-    "cull": 44,
+    "cull": 46,
     "cullMode": "gradient",
-    "cullFrom": 20,
+    "cullFrom": 21,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -1054,7 +1059,8 @@
     "presetId": "",
     "designName": "50-35-Noise 20-30 transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 10-solid transition": {
     "cols": 4,
@@ -1080,7 +1086,7 @@
     "seed": 7,
     "cull": 100,
     "cullMode": "gradient",
-    "cullFrom": 70,
+    "cullFrom": 71,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -1112,7 +1118,8 @@
     "presetId": "",
     "designName": "50-35-Noise 10-solid transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 20-solid transition": {
     "cols": 4,
@@ -1138,7 +1145,7 @@
     "seed": 7,
     "cull": 100,
     "cullMode": "gradient",
-    "cullFrom": 44,
+    "cullFrom": 46,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -1170,7 +1177,8 @@
     "presetId": "",
     "designName": "50-35-Noise 20-solid transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "50-35-Noise 30-solid transition": {
     "cols": 4,
@@ -1196,7 +1204,7 @@
     "seed": 7,
     "cull": 100,
     "cullMode": "gradient",
-    "cullFrom": 20,
+    "cullFrom": 21,
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 732,
@@ -1228,7 +1236,8 @@
     "presetId": "",
     "designName": "50-35-Noise 30-solid transition",
     "savedAt": "2026-09-09T08:53:15.262Z",
-    "cullEven": 75
+    "cullEven": 75,
+    "tileEdgeMm": 90
   },
   "Noise-Gradient 1235": {
     "cols": 4,
