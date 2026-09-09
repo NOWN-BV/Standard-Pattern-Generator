@@ -74,7 +74,9 @@ const SPEC = [
     key: 'lattice',
     kind: 'select',
     label: 'lattice',
-    options: () => ['stagger', 'grid', 'hex'],
+    options: () => ['stagger', 'grid', 'hex', 'hexV'],
+    labels: (v) =>
+      ({ stagger: 'stagger', grid: 'grid', hex: 'hex', hexV: 'hex turned 90°' })[v],
     when: (st) => st.placement !== 'packed',
   },
   {
@@ -1509,7 +1511,7 @@ const TIPS = {
   rows: 'How many panels tall the run is displayed. Panels are 1200 mm modules.',
 
   lattice:
-    'How the rows line up. Stagger offsets every other row by half a pitch, so each hole sits between two in the row above - a denser, more woven read, and what most perforated panels use. Grid aligns rows squarely. Hex is a true triangular lattice, with its row spacing snapped so the pattern still meets the panel joint.',
+    'How the rows line up. Stagger offsets every other row by half a pitch, so each hole sits between two in the row above - a denser, more woven read, and what most perforated panels use. Grid aligns rows squarely. Hex is a true triangular lattice, with its row spacing snapped so the pattern still meets the panel joint. HEX TURNED 90 DEGREES is the same lattice transposed: the ordinary hex family is pointy-top and its three directions come out at 0, 60 and 120 degrees, while the turned one puts them at 30, 90 and 150 - a vertical instead of a horizontal. It is a transpose rather than a rotation because a rotated lattice cannot land on both panel edges at once; this one still puts a hole centre on every joint.',
   placement:
     'How holes are positioned. Lattice pins every hole to a regular grid, so centres land exactly on panel joints and the pitch control applies - this is the standard perforation. Packed drops the grid and packs circles of varying size against one another, filling gaps with smaller ones, which gives a dense foam-like field. Packing has no pitch.',
   packDensity:

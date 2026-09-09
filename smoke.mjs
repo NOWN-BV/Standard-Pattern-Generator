@@ -943,3 +943,37 @@ console.log('all smoke checks passed');
 
   console.log('eight whole blocks in the panel, small holes on every square boundary');
 }
+
+// -- the hex lattice turned 90 degrees --------------------------------------
+//
+// It was in the engine as 'hexV' but not in the picker, so it could only be
+// reached by loading a design that already used it. It is a TRANSPOSE, not a
+// rotation: a rotated lattice cannot put a hole centre on both panel edges at
+// once, and meeting the joint is the property everything else here depends on.
+{
+  const B = {
+    cols: 2, rows: 2, shape: 'circle', minDia: 20, maxDia: 20,
+    modulation: 'uniform', cull: 0, taper: 0, tiling: 'WALL', latticeAspect: 100,
+  };
+  for (const pitch of [40, 50, 60, 75]) {
+    const a = buildField({ ...B, lattice: 'hex', pitch });
+    const b = buildField({ ...B, lattice: 'hexV', pitch });
+    const cols = (f) => [...new Set(f.holes.map((h) => +h.cx.toFixed(2)))].sort((x, y) => x - y);
+    const rows = (f) => [...new Set(f.holes.map((h) => +h.cy.toFixed(2)))].sort((x, y) => x - y);
+    // the turned lattice swaps the two spacings
+    assert.ok(
+      Math.abs(cols(b)[1] - cols(b)[0] - (rows(a)[1] - rows(a)[0])) < 1e-6,
+      `pitch ${pitch}: turned column spacing must equal the upright row spacing`
+    );
+    assert.ok(
+      Math.abs(rows(b)[1] - rows(b)[0] - (cols(a)[1] - cols(a)[0])) < 1e-6,
+      `pitch ${pitch}: turned row spacing must equal the upright column spacing`
+    );
+    // and it still meets both joints - that is what a transpose buys over a rotation
+    for (const f of [a, b]) {
+      assert.ok(f.holes.some((h) => Math.abs(h.cx - PANEL.moduleW) < 1e-6), `pitch ${pitch}: no hole on the vertical joint`);
+      assert.ok(f.holes.some((h) => Math.abs(h.cy - PANEL.moduleH) < 1e-6), `pitch ${pitch}: no hole on the horizontal joint`);
+    }
+  }
+  console.log('the hex lattice turns 90 degrees and still meets both joints');
+}
