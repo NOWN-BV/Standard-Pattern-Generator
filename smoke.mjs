@@ -944,12 +944,14 @@ console.log('all smoke checks passed');
   console.log('eight whole blocks in the panel, small holes on every square boundary');
 }
 
-// -- the hex lattice turned 90 degrees --------------------------------------
+// -- the transposed hex lattice --------------------------------------------
 //
-// It was in the engine as 'hexV' but not in the picker, so it could only be
-// reached by loading a design that already used it. It is a TRANSPOSE, not a
-// rotation: a rotated lattice cannot put a hole centre on both panel edges at
-// once, and meeting the joint is the property everything else here depends on.
+// 'hexV' is deliberately NOT offered in the picker: turning the LATTICE is not
+// something this product wants - only the hole shape turns, which the angle
+// control already does. It stays in the engine because six saved designs are
+// built on it (Sashiko vertical / triangle / triangle 75 / 100, and both
+// Asanoha), so this guards them. It is a TRANSPOSE, not a rotation: a rotated
+// lattice cannot put a hole centre on both panel edges at once.
 {
   const B = {
     cols: 2, rows: 2, shape: 'circle', minDia: 20, maxDia: 20,
@@ -995,5 +997,5 @@ console.log('all smoke checks passed');
       );
     }
   }
-  console.log('the hex lattice turns 90 degrees and still meets both joints');
+  console.log('the transposed hex lattice still meets both joints - Sashiko and Asanoha need it');
 }
