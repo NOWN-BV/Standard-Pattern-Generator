@@ -1230,6 +1230,8 @@ console.log('all smoke checks passed');
       [`${FAM} 10-30 transition`, 30, 10],
       [`${FAM} 20-30 transition`, 30, 20],
       [`${FAM} 10-solid transition`, 10, 0],
+      [`${FAM} 20-solid transition`, 20, 0],
+      [`${FAM} 30-solid transition`, 30, 0],
     ]) {
       const d = DESIGNS[name];
       assert.ok(d, `${name} is missing from designs.json`);
@@ -1378,8 +1380,8 @@ console.log('all smoke checks passed');
       const fam = Object.keys(DESIGNS).filter((k) => k.startsWith(FAM));
       assert.equal(
         fam.length,
-        7,
-        `${FAM} is three levels and four transitions, found ${fam.length}: ${fam}`
+        9,
+        `${FAM} is three levels and six transitions, found ${fam.length}: ${fam}`
       );
       // TILING IS NOT PART OF THE FIELD. What must match is that all four
       // tiles exist, since the removal threshold is ranked over the four seeds
