@@ -163,6 +163,10 @@
 // identical coordinate at cols=5. Panel seams are cut lines only.
 
 // -- Authoritative constants (mirrors src/shared/constants/panels.ts) ------
+// shape-paths has no imports of its own, so this is a leaf dependency and not
+// a cycle. Needed because the area of a rounded hole is measured on the very
+// points it is cut from rather than from a formula.
+
 const PANEL = {
   faceW: 596, // INNER_W - perforated face
   faceH: 1196, // INNER_H
@@ -298,6 +302,8 @@ function maxRadiusFor(p) {
   return Math.min(LIMITS.maxDia / 2, best);
 }
 
+const MORPHABLE_AREA = new Set(['hex', 'diamond', 'square', 'triangle', 'star']);
+
 const LATTICES = ['grid', 'stagger', 'hex', 'hexV', 'brick', 'diagonal'];
 const WAVE_SHAPES = ['sine', 'triangle', 'sawtooth', 'square'];
 const MODULATIONS = [
@@ -417,6 +423,15 @@ const DEFAULTS = {
   // 1 is the straight rhombus. Below 1 the sides pinch inward and it becomes a
   // playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The
   // two end points stay sharp at every value - only the sides move.
+  // ROUNDING DRIVEN BY THE FIELD.
+  //
+  // 0 leaves every hole the shape as drawn. Above it, the SMALLEST holes are
+  // rounded off to circles and the largest keep the full shape, with the amount
+  // set here saying how far the small end rounds. The gradient is then carried
+  // by the change of SHAPE as much as by the change of size, which is what lets
+  // a field read as a hexagon perforation that dissolves into a dot screen
+  // rather than as hexagons that merely shrink.
+  shapeMorph: 0,
   shapeCurve: 1,
   // Driven the same way ratioMax drives the proportion: 0 leaves the curve
   // fixed, above 0 it runs from shapeCurve to this across the field.
@@ -748,8 +763,32 @@ function superFill(k) {
   return val;
 }
 
+// Area of a shape that has been rounded toward a circle, as a multiple of
+// r squared. Measured by shoelace on the SAME points the hole is cut from, so
+// the open-area figure is the area of the actual part. Memoised per shape and
+// rounding; it depends on nothing else.
+const morphAreaCache = new Map();
+function morphArea(shape, morph) {
+  const m = Math.max(0, Math.min(1, morph));
+  const key = shape + ':' + m.toFixed(4);
+  const hit = morphAreaCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = shapeVerts(shape, 0, 0, 1, { morph: m });
+  let s2 = 0;
+  for (let i = 0; i < v.length; i++) {
+    const a = v[i];
+    const b = v[(i + 1) % v.length];
+    s2 += a[0] * b[1] - b[0] * a[1];
+  }
+  const val = Math.abs(s2) / 2;
+  morphAreaCache.set(key, val);
+  return val;
+}
+
 /** Face-area of one hole. Ported from src/client/pattern/shapes.ts holeArea(). */
-function holeArea(shape, r, ratio, curve) {
+function holeArea(shape, r, ratio, curve, morph) {
+  if (morph !== undefined && morph < 1 - 1e-9 && MORPHABLE_AREA.has(shape))
+    return morphArea(shape, morph) * r * r;
   switch (shape) {
     case 'circle':
       return Math.PI * r * r;
@@ -3592,6 +3631,7 @@ function buildField(params) {
     const k1 = Math.max(0.2, p.curveMax ?? 0);
     const dq = (p.ratioMax ?? 0) > 0;
     const dk = (p.curveMax ?? 0) > 0;
+    const dm = clamp(p.shapeMorph ?? 0, 0, 100) / 100;
     for (const c of candidates) {
       // The fade's field when it has been pointed at the proportion, the main
       // driver otherwise. Reading one or the other rather than both keeps this
@@ -3601,7 +3641,9 @@ function buildField(params) {
         : clamp(c.t, 0, 1);
       if (dq) c.ratio = lerp(q0, q1, t);
       c.curve = dk ? lerp(k0, k1, t) : k0;
-      if (dq || dk) c.area = holeArea(c.type, c.r, c.ratio, c.curve);
+      // Fully rounded at the small end, the shape as drawn at the large one.
+      if (dm > 0) c.morph = 1 - dm * (1 - t);
+      if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }
   }
 
@@ -3622,6 +3664,7 @@ function buildField(params) {
       angle: c.angle,
       ratio: c.ratio,
       curve: c.curve,
+      morph: c.morph,
       area: c.area,
       panelCol: c.panelCol,
       panelRow: c.panelRow,
@@ -3827,8 +3870,60 @@ const TAU = Math.PI * 2;
  * A hole that looked rotated but exported straight would be worse than no
  * rotation at all.
  */
+// Shapes that can round off toward a circle. Not the slot or the rhombus:
+// those are defined by a proportion rather than by corners, and they already
+// have their own controls for it.
+const MORPHABLE = new Set(['hex', 'diamond', 'square', 'triangle', 'star']);
+const MORPH_SEGS = 48;
+
+/**
+ * How far the polygon's own boundary is from its centre at this angle.
+ * Ray-cast rather than assumed regular: 'square' has a circumradius of 1.131r
+ * and 'diamond' is a rhombus, so a formula for a regular n-gon would misplace
+ * both of them.
+ */
+function polyRadiusAt(verts, cx, cy, ang) {
+  const dx = Math.cos(ang);
+  const dy = Math.sin(ang);
+  let best = 0;
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i];
+    const [bx, by] = verts[(i + 1) % verts.length];
+    const ex = bx - ax;
+    const ey = by - ay;
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-12) continue;
+    const t = ((ax - cx) * ey - (ay - cy) * ex) / den;
+    const u = ((ax - cx) * dy - (ay - cy) * dx) / den;
+    if (t >= 0 && u >= -1e-9 && u <= 1 + 1e-9 && t > best) best = t;
+  }
+  return best;
+}
+
+/**
+ * ROUNDED OFF TOWARD A CIRCLE.
+ *
+ * morph 1 is the polygon as drawn; 0 is a circle of the hole's own radius. In
+ * between the boundary is pulled toward that circle, so corners round off and
+ * flats bow out - the shape a perforation takes when it is small enough that a
+ * sharp corner stops reading. Driven from the size field it gives a field whose
+ * SMALL holes are circles and whose large ones are the full shape, with the
+ * change of shape carrying the gradient rather than the change of size.
+ */
+function morphVerts(base, cx, cy, r, morph) {
+  const m = Math.max(0, Math.min(1, morph));
+  const out = [];
+  for (let i = 0; i < MORPH_SEGS; i++) {
+    const a = (i * TAU) / MORPH_SEGS;
+    const rp = polyRadiusAt(base, cx, cy, a) || r;
+    const rr = r + (rp - r) * m;
+    out.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+  }
+  return out;
+}
+
 function shapeVerts(type, cx, cy, r, opts = {}) {
-  const verts = [];
+  let verts = [];
   switch (type) {
     case 'hex':
       for (let i = 0; i < 6; i++) {
@@ -3941,6 +4036,11 @@ function shapeVerts(type, cx, cy, r, opts = {}) {
     default:
       break; // circle - emitted as a native primitive, no verts
   }
+  // Rounding happens before rotation, so the two compose.
+  const morph = opts.morph;
+  if (morph !== undefined && morph < 1 - 1e-9 && MORPHABLE.has(type) && verts.length) {
+    verts = morphVerts(verts, cx, cy, r, morph);
+  }
   const ang = opts.angle ?? 0;
   if (!ang || !verts.length) return verts;
   const ca = Math.cos(ang);
@@ -3964,6 +4064,7 @@ function svgPath(hole) {
     angle: hole.angle,
     ratio: hole.ratio,
     curve: hole.curve,
+    morph: hole.morph,
   });
   if (!verts.length) return null;
   // Flip Y about the hole centre: spec verts are Y-up, SVG is Y-down.
@@ -4762,6 +4863,9 @@ function toDXF(field, meta = {}) {
     const by = (rows - 1 - item.row) * SY;
     const wx = bx + item.lx;
     const wy = by + PH - item.ly;
+    // A rounded hole is a polyline even when its type is a polygon, and a
+    // fully rounded one is a circle in all but name - emitted as a polyline so
+    // the cut file matches the preview exactly rather than nearly.
     if (h.type === 'circle') {
       ents.push(
         '0',
@@ -4783,7 +4887,12 @@ function toDXF(field, meta = {}) {
       ents.push(
         ...polyline(
           'THRU_CUT_PATTERN',
-          shapeVerts(h.type, wx, wy, h.r, { angle: h.angle, ratio: h.ratio, curve: h.curve }),
+          shapeVerts(h.type, wx, wy, h.r, {
+            angle: h.angle,
+            ratio: h.ratio,
+            curve: h.curve,
+            morph: h.morph,
+          }),
           colorInt
         )
       );
@@ -5290,6 +5399,18 @@ const SPEC = [
     max: 8,
     step: 0.05,
     when: (s) => s.modulation === 'radial' || s.taperDriver === 'radial',
+  },
+  {
+    key: 'shapeMorph',
+    kind: 'range',
+    label: 'round the small holes',
+    min: 0,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (s) =>
+      s.shape === 'hex' || s.shape === 'diamond' || s.shape === 'square' ||
+      s.shape === 'triangle' || s.shape === 'star',
   },
   {
     key: 'shapeCurve',
@@ -6609,6 +6730,8 @@ const TIPS = {
     'Chance that each hole beyond the first is actually there. 0 makes every group the full size; raising it mixes singles, pairs and triples, with singles most common. Around 35% matches a hand-stitched look.',
   radialShape:
     'What figure "distance from the centre" draws. 1 is a straight-sided DIAMOND, and below 1 its sides bow INWARD - the two points still meet at a corner, joined by a curve, which is the playing-card diamond. 2 is the circle this has always drawn, and higher values head toward a rectangle. Point it at the tiling unit rather than the panel and the figure is assembled out of four panels rather than repeated on each one.',
+  shapeMorph:
+    'Rounds the SMALL holes off toward circles while the large ones keep the full shape, so the gradient is carried by the change of shape as much as by the change of size - a hexagon perforation that dissolves into a dot screen rather than hexagons that merely shrink. At 0 every hole is the shape as drawn; at 100 the smallest hole is a plain circle of the same diameter.',
   shapeCurve:
     'How the two sides between the tips bend. 1 is straight - a plain rhombus. Below 1 they pinch inward and it reads as a playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The two end points stay sharp at every setting. Bowing out costs hole size: at 2 the shape is a circle, which on a square grid has to be root 2 smaller than the rhombus to keep the same web.',
   curveMax:

@@ -15,6 +15,11 @@
 // identical coordinate at cols=5. Panel seams are cut lines only.
 
 // -- Authoritative constants (mirrors src/shared/constants/panels.ts) ------
+// shape-paths has no imports of its own, so this is a leaf dependency and not
+// a cycle. Needed because the area of a rounded hole is measured on the very
+// points it is cut from rather than from a formula.
+import { shapeVerts } from './shape-paths.js';
+
 export const PANEL = {
   faceW: 596, // INNER_W - perforated face
   faceH: 1196, // INNER_H
@@ -150,6 +155,8 @@ export function maxRadiusFor(p) {
   return Math.min(LIMITS.maxDia / 2, best);
 }
 
+const MORPHABLE_AREA = new Set(['hex', 'diamond', 'square', 'triangle', 'star']);
+
 export const LATTICES = ['grid', 'stagger', 'hex', 'hexV', 'brick', 'diagonal'];
 export const WAVE_SHAPES = ['sine', 'triangle', 'sawtooth', 'square'];
 export const MODULATIONS = [
@@ -269,6 +276,15 @@ export const DEFAULTS = {
   // 1 is the straight rhombus. Below 1 the sides pinch inward and it becomes a
   // playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The
   // two end points stay sharp at every value - only the sides move.
+  // ROUNDING DRIVEN BY THE FIELD.
+  //
+  // 0 leaves every hole the shape as drawn. Above it, the SMALLEST holes are
+  // rounded off to circles and the largest keep the full shape, with the amount
+  // set here saying how far the small end rounds. The gradient is then carried
+  // by the change of SHAPE as much as by the change of size, which is what lets
+  // a field read as a hexagon perforation that dissolves into a dot screen
+  // rather than as hexagons that merely shrink.
+  shapeMorph: 0,
   shapeCurve: 1,
   // Driven the same way ratioMax drives the proportion: 0 leaves the curve
   // fixed, above 0 it runs from shapeCurve to this across the field.
@@ -600,8 +616,32 @@ function superFill(k) {
   return val;
 }
 
+// Area of a shape that has been rounded toward a circle, as a multiple of
+// r squared. Measured by shoelace on the SAME points the hole is cut from, so
+// the open-area figure is the area of the actual part. Memoised per shape and
+// rounding; it depends on nothing else.
+const morphAreaCache = new Map();
+function morphArea(shape, morph) {
+  const m = Math.max(0, Math.min(1, morph));
+  const key = shape + ':' + m.toFixed(4);
+  const hit = morphAreaCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = shapeVerts(shape, 0, 0, 1, { morph: m });
+  let s2 = 0;
+  for (let i = 0; i < v.length; i++) {
+    const a = v[i];
+    const b = v[(i + 1) % v.length];
+    s2 += a[0] * b[1] - b[0] * a[1];
+  }
+  const val = Math.abs(s2) / 2;
+  morphAreaCache.set(key, val);
+  return val;
+}
+
 /** Face-area of one hole. Ported from src/client/pattern/shapes.ts holeArea(). */
-export function holeArea(shape, r, ratio, curve) {
+export function holeArea(shape, r, ratio, curve, morph) {
+  if (morph !== undefined && morph < 1 - 1e-9 && MORPHABLE_AREA.has(shape))
+    return morphArea(shape, morph) * r * r;
   switch (shape) {
     case 'circle':
       return Math.PI * r * r;
@@ -3444,6 +3484,7 @@ export function buildField(params) {
     const k1 = Math.max(0.2, p.curveMax ?? 0);
     const dq = (p.ratioMax ?? 0) > 0;
     const dk = (p.curveMax ?? 0) > 0;
+    const dm = clamp(p.shapeMorph ?? 0, 0, 100) / 100;
     for (const c of candidates) {
       // The fade's field when it has been pointed at the proportion, the main
       // driver otherwise. Reading one or the other rather than both keeps this
@@ -3453,7 +3494,9 @@ export function buildField(params) {
         : clamp(c.t, 0, 1);
       if (dq) c.ratio = lerp(q0, q1, t);
       c.curve = dk ? lerp(k0, k1, t) : k0;
-      if (dq || dk) c.area = holeArea(c.type, c.r, c.ratio, c.curve);
+      // Fully rounded at the small end, the shape as drawn at the large one.
+      if (dm > 0) c.morph = 1 - dm * (1 - t);
+      if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }
   }
 
@@ -3474,6 +3517,7 @@ export function buildField(params) {
       angle: c.angle,
       ratio: c.ratio,
       curve: c.curve,
+      morph: c.morph,
       area: c.area,
       panelCol: c.panelCol,
       panelRow: c.panelRow,

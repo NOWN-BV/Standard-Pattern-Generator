@@ -628,6 +628,9 @@ export function toDXF(field, meta = {}) {
     const by = (rows - 1 - item.row) * SY;
     const wx = bx + item.lx;
     const wy = by + PH - item.ly;
+    // A rounded hole is a polyline even when its type is a polygon, and a
+    // fully rounded one is a circle in all but name - emitted as a polyline so
+    // the cut file matches the preview exactly rather than nearly.
     if (h.type === 'circle') {
       ents.push(
         '0',
@@ -649,7 +652,12 @@ export function toDXF(field, meta = {}) {
       ents.push(
         ...polyline(
           'THRU_CUT_PATTERN',
-          shapeVerts(h.type, wx, wy, h.r, { angle: h.angle, ratio: h.ratio, curve: h.curve }),
+          shapeVerts(h.type, wx, wy, h.r, {
+            angle: h.angle,
+            ratio: h.ratio,
+            curve: h.curve,
+            morph: h.morph,
+          }),
           colorInt
         )
       );

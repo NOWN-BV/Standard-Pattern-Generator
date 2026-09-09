@@ -18,8 +18,60 @@ export const TAU = Math.PI * 2;
  * A hole that looked rotated but exported straight would be worse than no
  * rotation at all.
  */
+// Shapes that can round off toward a circle. Not the slot or the rhombus:
+// those are defined by a proportion rather than by corners, and they already
+// have their own controls for it.
+const MORPHABLE = new Set(['hex', 'diamond', 'square', 'triangle', 'star']);
+const MORPH_SEGS = 48;
+
+/**
+ * How far the polygon's own boundary is from its centre at this angle.
+ * Ray-cast rather than assumed regular: 'square' has a circumradius of 1.131r
+ * and 'diamond' is a rhombus, so a formula for a regular n-gon would misplace
+ * both of them.
+ */
+function polyRadiusAt(verts, cx, cy, ang) {
+  const dx = Math.cos(ang);
+  const dy = Math.sin(ang);
+  let best = 0;
+  for (let i = 0; i < verts.length; i++) {
+    const [ax, ay] = verts[i];
+    const [bx, by] = verts[(i + 1) % verts.length];
+    const ex = bx - ax;
+    const ey = by - ay;
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-12) continue;
+    const t = ((ax - cx) * ey - (ay - cy) * ex) / den;
+    const u = ((ax - cx) * dy - (ay - cy) * dx) / den;
+    if (t >= 0 && u >= -1e-9 && u <= 1 + 1e-9 && t > best) best = t;
+  }
+  return best;
+}
+
+/**
+ * ROUNDED OFF TOWARD A CIRCLE.
+ *
+ * morph 1 is the polygon as drawn; 0 is a circle of the hole's own radius. In
+ * between the boundary is pulled toward that circle, so corners round off and
+ * flats bow out - the shape a perforation takes when it is small enough that a
+ * sharp corner stops reading. Driven from the size field it gives a field whose
+ * SMALL holes are circles and whose large ones are the full shape, with the
+ * change of shape carrying the gradient rather than the change of size.
+ */
+function morphVerts(base, cx, cy, r, morph) {
+  const m = Math.max(0, Math.min(1, morph));
+  const out = [];
+  for (let i = 0; i < MORPH_SEGS; i++) {
+    const a = (i * TAU) / MORPH_SEGS;
+    const rp = polyRadiusAt(base, cx, cy, a) || r;
+    const rr = r + (rp - r) * m;
+    out.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+  }
+  return out;
+}
+
 export function shapeVerts(type, cx, cy, r, opts = {}) {
-  const verts = [];
+  let verts = [];
   switch (type) {
     case 'hex':
       for (let i = 0; i < 6; i++) {
@@ -132,6 +184,11 @@ export function shapeVerts(type, cx, cy, r, opts = {}) {
     default:
       break; // circle - emitted as a native primitive, no verts
   }
+  // Rounding happens before rotation, so the two compose.
+  const morph = opts.morph;
+  if (morph !== undefined && morph < 1 - 1e-9 && MORPHABLE.has(type) && verts.length) {
+    verts = morphVerts(verts, cx, cy, r, morph);
+  }
   const ang = opts.angle ?? 0;
   if (!ang || !verts.length) return verts;
   const ca = Math.cos(ang);
@@ -155,6 +212,7 @@ export function svgPath(hole) {
     angle: hole.angle,
     ratio: hole.ratio,
     curve: hole.curve,
+    morph: hole.morph,
   });
   if (!verts.length) return null;
   // Flip Y about the hole centre: spec verts are Y-up, SVG is Y-down.

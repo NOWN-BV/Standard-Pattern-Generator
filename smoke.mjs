@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { buildField, LIMITS, PANEL, quantileRank } from './pattern-core.js';
 import { PRESETS } from './presets.js';
+import { shapeVerts } from './shape-paths.js';
 import {
   toDXF,
   panelHoles,
@@ -998,4 +999,66 @@ console.log('all smoke checks passed');
     }
   }
   console.log('the transposed hex lattice still meets both joints - Sashiko and Asanoha need it');
+}
+
+// -- rounding the small holes off toward circles ----------------------------
+//
+// The gradient carried by the change of SHAPE rather than only by size: the
+// smallest holes are circles, the largest keep the full shape. Off by default,
+// so nothing that existed before it moves.
+{
+  const round = (type, morph) => {
+    const v = shapeVerts(type, 0, 0, 10, { morph });
+    const p = [];
+    for (let i = 0; i < v.length; i++) {
+      const a = v[i];
+      const b = v[(i + 1) % v.length];
+      p.push(a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+    }
+    const rs = p.map((q) => Math.hypot(q[0], q[1]));
+    return Math.min(...rs) / Math.max(...rs);
+  };
+  for (const shape of ['hex', 'diamond', 'square']) {
+    // fully rounded is a circle of the hole's own radius, to within the
+    // faceting of the polyline it is cut as
+    assert.ok(round(shape, 0) > 0.99, `${shape}: fully rounded must be a circle`);
+    const v0 = shapeVerts(shape, 0, 0, 10, { morph: 0 });
+    assert.ok(
+      Math.abs(Math.max(...v0.map((q) => Math.hypot(q[0], q[1]))) - 10) < 1e-6,
+      `${shape}: the circle must be the hole's own radius, not the inscribed one`
+    );
+    // and it gets rounder all the way, never doubling back
+    let last = 0;
+    for (const m of [1, 0.75, 0.5, 0.25, 0]) {
+      const rr = round(shape, m);
+      assert.ok(rr > last, `${shape}: rounding must be monotonic (${m})`);
+      last = rr;
+    }
+    // untouched at morph 1 - same vertex list as before the feature
+    assert.deepEqual(
+      shapeVerts(shape, 0, 0, 10, { morph: 1 }),
+      shapeVerts(shape, 0, 0, 10),
+      `${shape}: morph 1 must be the shape as drawn`
+    );
+  }
+
+  const B = {
+    cols: 1, rows: 1, lattice: 'hex', pitch: 50, shape: 'hex', minDia: 12, maxDia: 35,
+    modulation: 'linear', modAngle: 90, modScope: 'run', gamma: 1, sizeLevels: 1,
+    sizeContrast: 0, cull: 0, taper: 0, tiling: 'WALL',
+  };
+  const off = buildField({ ...B, shapeMorph: 0 });
+  assert.ok(off.holes.every((h) => h.morph === undefined), 'off must not touch a hole');
+  const on = buildField({ ...B, shapeMorph: 100 });
+  const by = [...on.holes].sort((a, b) => a.r - b.r);
+  assert.ok(Math.abs(by[0].morph - 0) < 1e-6, 'the smallest hole must be fully rounded');
+  assert.ok(Math.abs(by[by.length - 1].morph - 1) < 1e-6, 'the largest must keep the shape');
+  // the area reported is the area of the rounded hole, not of the polygon
+  const small = by[0];
+  assert.ok(
+    Math.abs(small.area - Math.PI * small.r * small.r) / (Math.PI * small.r * small.r) < 0.01,
+    'a fully rounded hole must report a circle area'
+  );
+
+  console.log('small holes round off to circles, large ones keep the shape');
 }
