@@ -1281,5 +1281,60 @@ console.log('all smoke checks passed');
   }
   console.log('a 50-35 panel is the same part however many panels are on screen');
 
+  // -- ONE CLOUD, OR THEY DO NOT MEET ---------------------------------------
+  //
+  // A level on its own removal seed cannot join anything: both sides of a joint
+  // have to decide the holes standing on it from the same field value. So every
+  // design in the family must carry the same cloud, and only the threshold may
+  // differ. This is not hypothetical - five designs from before the family was
+  // re-levelled came back into designs.json, on the seeds they had then. Their
+  // open area was right, their names were right, and they would have joined
+  // nothing, because the cloud underneath was a different cloud.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    const CLOUD = [
+      'cullSeed',
+      'cullShape',
+      'cullScale',
+      'cullAspect',
+      'cullShear',
+      'cullRough',
+      'cullRandom',
+      'cullOrder',
+      'lattice',
+      'pitch',
+      'shape',
+      'minDia',
+      'maxDia',
+      'tiling',
+      'tileBlendMm',
+    ];
+    const fam = Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-Noise'));
+    assert.equal(fam.length, 7, `the family is three levels and four transitions, found ${fam.length}: ${fam}`);
+    const ref = DESIGNS[fam[0]];
+    for (const n of fam)
+      for (const f of CLOUD)
+        assert.deepEqual(
+          DESIGNS[n][f],
+          ref[f],
+          `${n} differs from ${fam[0]} on ${f} - it cannot meet the rest of the family`
+        );
+
+    // and any design that puts a percentage in its name has to deliver it
+    const face = PANEL.faceW * PANEL.faceH;
+    for (const [n, d] of Object.entries(DESIGNS)) {
+      const m = n.match(/(\d+(?:\.\d+)?)\s*%\s*$/);
+      if (!m) continue;
+      const f = buildField({ ...d });
+      const got = (f.stats.openArea / (d.cols * d.rows * face)) * 100;
+      assert.ok(
+        Math.abs(got - Number(m[1])) < 0.5,
+        `${n} delivers ${got.toFixed(2)} % open`
+      );
+    }
+  }
+  console.log('the family shares one cloud, and a name with a percentage delivers it');
+
+
 
 }
