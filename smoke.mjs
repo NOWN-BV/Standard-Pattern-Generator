@@ -1151,7 +1151,7 @@ console.log('all smoke checks passed');
 
   // -- THE 50-35 FAMILY: ONE FIELD, THREE LEVELS, FOUR TRANSITIONS ---------
   //
-  // The family is built on 50-35-Noise 35%: a uniform lattice at pitch 50 with
+  // The family is built on 50-35-Noise 30%: a uniform lattice at pitch 50 with
   // a 35mm hexagon at every node, thinned by cloud removal to the open area in
   // the name. The other two levels are the SAME cloud at a different threshold,
   // which is the whole point - a panel of one has to meet a panel of another
@@ -1179,8 +1179,8 @@ console.log('all smoke checks passed');
     // word - the design called 10 % was delivering 8.2 %.
     const rowOf = {};
     for (const [name, want] of [
-      ['50-35-Noise 35%', 35],
-      ['50-35-Noise 25%', 25],
+      ['50-35-Noise 30%', 30],
+      ['50-35-Noise 20%', 20],
       ['50-35-Noise 10%', 10],
     ]) {
       const d = DESIGNS[name];
@@ -1219,9 +1219,9 @@ console.log('all smoke checks passed');
     // lattice rows, so it lands on exactly 0 at the bottom and exactly 1 at the
     // top and the thresholds there are exactly the two levels.
     for (const [name, bottom, top] of [
-      ['50-35-Noise 10-25 transition', 25, 10],
-      ['50-35-Noise 10-35 transition', 35, 10],
-      ['50-35-Noise 25-35 transition', 35, 25],
+      ['50-35-Noise 10-20 transition', 20, 10],
+      ['50-35-Noise 10-30 transition', 30, 10],
+      ['50-35-Noise 20-30 transition', 30, 20],
       ['50-35-Noise 10-solid transition', 10, 0],
     ]) {
       const d = DESIGNS[name];

@@ -714,7 +714,7 @@
     "designName": "Basic - 50-2535 H",
     "savedAt": "2026-08-24T10:51:34.925Z"
   },
-  "50-35-Noise 35%": {
+  "50-35-Noise 30%": {
     "cols": 2,
     "rows": 2,
     "gap": 0,
@@ -736,10 +736,10 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 10,
+    "cull": 23,
     "cullMode": "even",
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -766,7 +766,7 @@
     "showSeams": true,
     "zoom": 30,
     "presetId": "",
-    "designName": "50-35-Noise 35%",
+    "designName": "50-35-Noise 30%",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10%": {
@@ -794,7 +794,7 @@
     "cull": 74,
     "cullMode": "even",
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -824,7 +824,7 @@
     "designName": "50-35-Noise 10%",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
-  "50-35-Noise 25%": {
+  "50-35-Noise 20%": {
     "cols": 2,
     "rows": 2,
     "gap": 0,
@@ -846,10 +846,10 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 35,
+    "cull": 49,
     "cullMode": "even",
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -876,10 +876,10 @@
     "showSeams": true,
     "zoom": 30,
     "presetId": "",
-    "designName": "50-35-Noise 25%",
+    "designName": "50-35-Noise 20%",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
-  "50-35-Noise 10-35 transition": {
+  "50-35-Noise 10-30 transition": {
     "cols": 4,
     "rows": 1,
     "gap": 0,
@@ -903,10 +903,10 @@
     "seed": 7,
     "cull": 74,
     "cullMode": "gradient",
-    "cullFrom": 10,
+    "cullFrom": 23,
     "cullBand": 50,
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -933,10 +933,10 @@
     "showSeams": true,
     "zoom": 95,
     "presetId": "",
-    "designName": "50-35-Noise 10-35 transition",
+    "designName": "50-35-Noise 10-30 transition",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
-  "50-35-Noise 10-25 transition": {
+  "50-35-Noise 10-20 transition": {
     "cols": 5,
     "rows": 1,
     "gap": 0,
@@ -960,10 +960,10 @@
     "seed": 7,
     "cull": 74,
     "cullMode": "gradient",
-    "cullFrom": 35,
+    "cullFrom": 49,
     "cullBand": 50,
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -990,10 +990,10 @@
     "showSeams": true,
     "zoom": 90,
     "presetId": "",
-    "designName": "50-35-Noise 10-25 transition",
+    "designName": "50-35-Noise 10-20 transition",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
-  "50-35-Noise 25-35 transition": {
+  "50-35-Noise 20-30 transition": {
     "cols": 4,
     "rows": 1,
     "gap": 0,
@@ -1015,12 +1015,12 @@
     "jitter": 0,
     "tiling": "P4",
     "seed": 7,
-    "cull": 35,
+    "cull": 49,
     "cullMode": "gradient",
-    "cullFrom": 10,
+    "cullFrom": 23,
     "cullBand": 50,
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
@@ -1047,7 +1047,7 @@
     "showSeams": true,
     "zoom": 85,
     "presetId": "",
-    "designName": "50-35-Noise 25-35 transition",
+    "designName": "50-35-Noise 20-30 transition",
     "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10-solid transition": {
@@ -1077,7 +1077,7 @@
     "cullFrom": 74,
     "cullBand": 50,
     "cullOrder": "blue",
-    "cullSeed": 405,
+    "cullSeed": 547,
     "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
