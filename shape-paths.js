@@ -47,7 +47,19 @@ function polyRadiusAt(verts, cx, cy, ang) {
   return best;
 }
 
-const ARC_SEGS = 16; // segments per corner arc
+// A CORNER IS AN ARC, AND IT LEAVES HERE AS ONE.
+//
+// A fillet used to be written out as sixteen little straight segments, which
+// is both wrong and enormous: a 279-hole panel of filleted hexagons came to
+// 2310 KB of DXF against 168 KB for the same panel with sharp corners, because
+// every hole carried 102 vertices instead of 6. As an ARC it is two vertices -
+// the two tangent points - and a bulge, which is what DXF has had since R12 and
+// what the parser in exporters.js already reads on the way in.
+//
+// So a vertex here is [x, y] or [x, y, bulge], where the bulge is tan of a
+// quarter of the sweep of the arc running from THIS vertex to the next, signed
+// counter-clockwise. Anything that needs a plain polygon calls flattenBulges().
+const ARC_TOL = 0.02; // mm of chord error allowed when an arc must be flattened
 
 /** Signed area; positive when the ring runs counter-clockwise. */
 function signedArea(v) {
@@ -129,21 +141,15 @@ function openConvex(base, d) {
   for (let i = 0; i < n; i++) {
     const V = inner[i]; // the corner between edge i-1 and edge i
     const j = (i + n - 1) % n;
-    const a1 = Math.atan2(ny[j], nx[j]);
-    const a2 = Math.atan2(ny[i], nx[i]);
-    let sweep = a2 - a1;
+    let sweep = Math.atan2(ny[i], nx[i]) - Math.atan2(ny[j], nx[j]);
     while (sweep > Math.PI) sweep -= TAU;
     while (sweep < -Math.PI) sweep += TAU;
-    // from k=1: the arc opens on the point the previous edge closed on, and a
-    // repeated point is a zero-length segment that every downstream consumer -
-    // the area sum, the clearance test, the DXF polyline - then has to cope with.
-    for (let k = 1; k <= ARC_SEGS; k++) {
-      const a = a1 + (sweep * k) / ARC_SEGS;
-      out.push([V[0] + d * Math.cos(a), V[1] + d * Math.sin(a)]);
-    }
-    // the straight run of edge i, pushed back out by d
-    const W = inner[(i + 1) % n];
-    out.push([W[0] + d * nx[i], W[1] + d * ny[i]]);
+    // Two tangent points and a bulge. The straight run to the next corner falls
+    // out of it: the arc closes on edge i offset by d, and the next arc opens on
+    // the same edge offset by the same d, so the segment between them is the
+    // edge itself and carries no bulge.
+    out.push([V[0] + d * nx[j], V[1] + d * ny[j], Math.tan(sweep / 4)]);
+    out.push([V[0] + d * nx[i], V[1] + d * ny[i]]);
   }
   return out;
 }
@@ -163,10 +169,34 @@ function inradius(base, cx, cy) {
   return Number.isFinite(m) ? m : 0;
 }
 
-/** Largest distance from the centre out to the outline. */
+/**
+ * Largest distance from the centre out to the outline, ARCS INCLUDED.
+ *
+ * Once a fillet is carried as a bulge the vertex list holds only the tangent
+ * points, and the arc between them bows out past both. Measuring the points
+ * alone put a 35mm hexagon at 35.34 and every filleted hole came out over the
+ * diameter it was specified at. For each arc the farthest point of its full
+ * circle is |OC| + R along the ray from the shape centre through the arc
+ * centre; it counts only when that direction falls inside the sweep, and
+ * otherwise the endpoints already do.
+ */
 function outlineExtent(v, cx, cy) {
   let m = 0;
-  for (const p of v) m = Math.max(m, Math.hypot(p[0] - cx, p[1] - cy));
+  for (let i = 0; i < v.length; i++) {
+    const p1 = v[i];
+    m = Math.max(m, Math.hypot(p1[0] - cx, p1[1] - cy));
+    if (!(p1.length > 2 && p1[2])) continue;
+    const p2 = v[(i + 1) % v.length];
+    const arc = arcFromBulge(p1, p2, p1[2]);
+    if (!arc) continue;
+    const far = Math.atan2(arc.cy - cy, arc.cx - cx);
+    let d1 = far - arc.a1;
+    const tau = Math.PI * 2;
+    while (d1 < 0) d1 += tau;
+    while (d1 >= tau) d1 -= tau;
+    const within = arc.sweep > 0 ? d1 <= arc.sweep : d1 - tau >= arc.sweep;
+    if (within) m = Math.max(m, Math.hypot(arc.cx - cx, arc.cy - cy) + arc.r);
+  }
   return m;
 }
 
@@ -210,7 +240,9 @@ function morphVerts(base, cx, cy, r, morph) {
   }
   // At the full fillet the inner ring has collapsed to a point and every
   // straight run has gone to nothing. The outline is right, but it carries
-  // repeated points; drop them so what leaves here is a clean ring.
+  // repeated points; drop them so what leaves here is a clean ring. The FIRST
+  // of a coincident pair goes, never the second: the pair is an arc's end and
+  // the next arc's start, and it is the second that carries the bulge.
   v = v.filter((q, i) => {
     const w = v[(i + 1) % v.length];
     return Math.hypot(q[0] - w[0], q[1] - w[1]) > 1e-9;
@@ -219,7 +251,90 @@ function morphVerts(base, cx, cy, r, morph) {
   if (ext <= 1e-9) return v.map(([x, y]) => [cx + x, cy + y]);
   const want = r + (outlineExtent(cen, 0, 0) - r) * m;
   const s = want / ext;
-  return v.map(([x, y]) => [cx + x * s, cy + y * s]);
+  // A bulge is a ratio, so it survives scaling untouched.
+  return v.map(([x, y, b]) => (b ? [cx + x * s, cy + y * s, b] : [cx + x * s, cy + y * s]));
+}
+
+/**
+ * The arc a bulge describes: centre, radius and the two end angles.
+ * b = tan(sweep / 4), signed counter-clockwise, per the DXF convention.
+ */
+export function arcFromBulge(p1, p2, b) {
+  const sweep = 4 * Math.atan(b);
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  const chord = Math.hypot(dx, dy);
+  if (chord < 1e-12 || Math.abs(sweep) < 1e-12) return null;
+  const rad = chord / (2 * Math.sin(Math.abs(sweep) / 2));
+  // centre is off the chord midpoint, on the side the sweep turns toward
+  const h = Math.sqrt(Math.max(0, rad * rad - (chord / 2) * (chord / 2)));
+  const sgn = sweep > 0 ? 1 : -1;
+  const inside = Math.abs(sweep) > Math.PI ? -1 : 1;
+  const mx = (p1[0] + p2[0]) / 2;
+  const my = (p1[1] + p2[1]) / 2;
+  const cx = mx - (sgn * inside * h * dy) / chord;
+  const cy = my + (sgn * inside * h * dx) / chord;
+  return {
+    cx,
+    cy,
+    r: rad,
+    a1: Math.atan2(p1[1] - cy, p1[0] - cx),
+    a2: Math.atan2(p2[1] - cy, p2[0] - cx),
+    sweep,
+  };
+}
+
+/**
+ * A plain polygon from a ring that may carry bulges, for anything that has to
+ * treat the outline as a list of points - an area sum, a hit test, a raster.
+ * Segment count follows the arc rather than being fixed, so a 1.5mm fillet
+ * costs three segments and a fully rounded hole stays round.
+ */
+export function flattenBulges(verts, tol = ARC_TOL) {
+  if (!verts.some((v) => v.length > 2 && v[2])) return verts;
+  const out = [];
+  for (let i = 0; i < verts.length; i++) {
+    const p1 = verts[i];
+    const p2 = verts[(i + 1) % verts.length];
+    out.push([p1[0], p1[1]]);
+    const arc = p1.length > 2 && p1[2] ? arcFromBulge(p1, p2, p1[2]) : null;
+    if (!arc) continue;
+    // chord error of one segment is R(1 - cos(step/2)); solve for step
+    const step = arc.r > tol ? 2 * Math.acos(1 - tol / arc.r) : Math.PI;
+    const segs = Math.max(3, Math.ceil(Math.abs(arc.sweep) / step));
+    for (let k = 1; k < segs; k++) {
+      const a = arc.a1 + (arc.sweep * k) / segs;
+      out.push([arc.cx + arc.r * Math.cos(a), arc.cy + arc.r * Math.sin(a)]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Area enclosed by a ring that may carry bulges - EXACTLY, not to a tolerance.
+ *
+ * Shoelace over the chords, plus the circular segment each arc adds beyond its
+ * own chord: (R squared / 2)(theta - sin theta), signed by the way the arc
+ * turns. Flattening and summing instead makes the answer depend on how finely
+ * it was flattened, and the area here is normalised to a unit radius, where a
+ * tolerance quoted in millimetres is 2 % of the whole shape - which is exactly
+ * how a fully rounded hole came to report 3.078 against pi.
+ */
+export function ringArea(verts) {
+  let s2 = 0;
+  let seg = 0;
+  for (let i = 0; i < verts.length; i++) {
+    const p1 = verts[i];
+    const p2 = verts[(i + 1) % verts.length];
+    s2 += p1[0] * p2[1] - p2[0] * p1[1];
+    const b = p1.length > 2 ? p1[2] : 0;
+    if (!b) continue;
+    const arc = arcFromBulge(p1, p2, b);
+    if (!arc) continue;
+    const th = Math.abs(arc.sweep);
+    seg += Math.sign(arc.sweep) * ((arc.r * arc.r) / 2) * (th - Math.sin(th));
+  }
+  return Math.abs(s2 / 2 + seg);
 }
 
 export function shapeVerts(type, cx, cy, r, opts = {}) {
@@ -345,10 +460,12 @@ export function shapeVerts(type, cx, cy, r, opts = {}) {
   if (!ang || !verts.length) return verts;
   const ca = Math.cos(ang);
   const sa = Math.sin(ang);
-  return verts.map(([vx, vy]) => {
+  // Turning a ring does not change any arc sweep, so the bulges ride along.
+  return verts.map(([vx, vy, bg]) => {
     const dx = vx - cx;
     const dy = vy - cy;
-    return [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
+    const q = [cx + dx * ca - dy * sa, cy + dx * sa + dy * ca];
+    return bg ? [q[0], q[1], bg] : q;
   });
 }
 
@@ -368,8 +485,26 @@ export function svgPath(hole) {
   });
   if (!verts.length) return null;
   // Flip Y about the hole centre: spec verts are Y-up, SVG is Y-down.
-  const d = verts
-    .map(([vx, vy], i) => `${i ? 'L' : 'M'}${fx(vx)} ${fx(hole.cy - (vy - hole.cy))}`)
-    .join(' ');
-  return `${d} Z`;
+  //
+  // A bulge becomes an SVG arc rather than a run of line segments, so the
+  // preview shows the same curve the DXF carries instead of an approximation of
+  // it - which is the whole reason both come from this one list. The flip
+  // reverses the direction of travel, so the sweep flag is the opposite of the
+  // bulge's sign.
+  const fy = (vy) => fx(hole.cy - (vy - hole.cy));
+  const out = [];
+  for (let i = 0; i < verts.length; i++) {
+    const p1 = verts[i];
+    const p2 = verts[(i + 1) % verts.length];
+    if (i === 0) out.push(`M${fx(p1[0])} ${fy(p1[1])}`);
+    const b = p1.length > 2 ? p1[2] : 0;
+    const arc = b ? arcFromBulge(p1, p2, b) : null;
+    if (arc) {
+      const large = Math.abs(arc.sweep) > Math.PI ? 1 : 0;
+      out.push(`A${fx(arc.r)} ${fx(arc.r)} 0 ${large} ${b > 0 ? 1 : 0} ${fx(p2[0])} ${fy(p2[1])}`);
+    } else if (i < verts.length - 1) {
+      out.push(`L${fx(p2[0])} ${fy(p2[1])}`);
+    }
+  }
+  return `${out.join(' ')} Z`;
 }

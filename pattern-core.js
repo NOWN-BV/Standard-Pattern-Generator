@@ -18,7 +18,7 @@
 // shape-paths has no imports of its own, so this is a leaf dependency and not
 // a cycle. Needed because the area of a rounded hole is measured on the very
 // points it is cut from rather than from a formula.
-import { shapeVerts } from './shape-paths.js';
+import { shapeVerts, ringArea } from './shape-paths.js';
 
 export const PANEL = {
   faceW: 596, // INNER_W - perforated face
@@ -650,14 +650,9 @@ function morphArea(shape, morph) {
   const key = shape + ':' + m.toFixed(4);
   const hit = morphAreaCache.get(key);
   if (hit !== undefined) return hit;
-  const v = shapeVerts(shape, 0, 0, 1, { morph: m });
-  let s2 = 0;
-  for (let i = 0; i < v.length; i++) {
-    const a = v[i];
-    const b = v[(i + 1) % v.length];
-    s2 += a[0] * b[1] - b[0] * a[1];
-  }
-  const val = Math.abs(s2) / 2;
+  // Exact, arcs and all - see ringArea. A shoelace over the tangent points
+  // alone cuts every corner off and reports an open area the part does not have.
+  const val = ringArea(shapeVerts(shape, 0, 0, 1, { morph: m }));
   morphAreaCache.set(key, val);
   return val;
 }

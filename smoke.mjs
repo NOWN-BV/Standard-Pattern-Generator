@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildField, LIMITS, PANEL, quantileRank, tileLabelFor } from './pattern-core.js';
 import { PRESETS } from './presets.js';
-import { shapeVerts } from './shape-paths.js';
+import { shapeVerts, flattenBulges } from './shape-paths.js';
 import {
   toDXF,
   panelHoles,
@@ -1008,8 +1008,13 @@ console.log('all smoke checks passed');
 // smallest holes are circles, the largest keep the full shape. Off by default,
 // so nothing that existed before it moves.
 {
+  // FLATTENED BEFORE MEASURING. The outline carries its fillets as bulges -
+  // two tangent points and an arc - so a check that reads the vertex list as a
+  // polygon is reading the chords, not the shape. Everything geometric below
+  // goes through flattenBulges first; what leaves for the DXF does not.
+  const flat = (type, morph) => flattenBulges(shapeVerts(type, 0, 0, 10, { morph }));
   const round = (type, morph) => {
-    const v = shapeVerts(type, 0, 0, 10, { morph });
+    const v = flat(type, morph);
     const p = [];
     for (let i = 0; i < v.length; i++) {
       const a = v[i];
@@ -1023,7 +1028,7 @@ console.log('all smoke checks passed');
     // fully rounded is a circle of the hole's own radius, to within the
     // faceting of the polyline it is cut as
     assert.ok(round(shape, 0) > 0.99, `${shape}: fully rounded must be a circle`);
-    const v0 = shapeVerts(shape, 0, 0, 10, { morph: 0 });
+    const v0 = flat(shape, 0);
     assert.ok(
       Math.abs(Math.max(...v0.map((q) => Math.hypot(q[0], q[1]))) - 10) < 1e-6,
       `${shape}: the circle must be the hole's own radius, not the inscribed one`
@@ -1043,18 +1048,14 @@ console.log('all smoke checks passed');
     // by the sharpest turn anywhere on the outline: a fillet leaves nothing
     // sharper than one segment of its own arc, a pull leaves the corner.
     for (const m of [0.75, 0.5, 0.25]) {
-      const v = shapeVerts(shape, 0, 0, 10, { morph: m });
+      const v = flat(shape, m);
       let sharp = 0;
-      let longest = 0;
-      const seg = [];
       for (let i = 0; i < v.length; i++) {
         const a = v[i];
         const b = v[(i + 1) % v.length];
         const c = v[(i + 2) % v.length];
         const len = Math.hypot(a[0] - b[0], a[1] - b[1]);
         assert.ok(len > 1e-9, `${shape}: repeated point`);
-        longest = Math.max(longest, len);
-        seg.push(len);
         let t = Math.atan2(c[1] - b[1], c[0] - b[0]) - Math.atan2(b[1] - a[1], b[0] - a[0]);
         while (t > Math.PI) t -= Math.PI * 2;
         while (t < -Math.PI) t += Math.PI * 2;
@@ -1066,15 +1067,23 @@ console.log('all smoke checks passed');
         sharp < 0.35,
         `${shape}: morph ${m} still turns ${((sharp * 180) / Math.PI).toFixed(0)} degrees - that is a corner, not a fillet`
       );
-      // AND THE FLATS ARE STILL FLAT. A fillet takes the corners and leaves the
-      // edges, so the outline is a few long straight runs among many short arc
-      // segments; a pull toward the circle makes every segment much the same
-      // length. Measured as the longest segment against the median, that is 5.9
-      // or more here against about 1 for a pull. (At morph 0 there is correctly
-      // no flat left at all - the arcs have met.)
-      seg.sort((x, y) => x - y);
-      const ratio = longest / seg[seg.length >> 1];
-      assert.ok(ratio > 4, `${shape}: morph ${m} left no straight edge (${ratio.toFixed(1)})`);
+      // AND THE FLATS ARE STILL FLAT - asked of the outline itself now that it
+      // says so. A filleted convex polygon is one ARC per corner and one
+      // STRAIGHT RUN per edge, and the vertex list carries exactly that: a
+      // vertex with a bulge opens an arc, one without opens a line. Counting
+      // them beats measuring segment lengths, which only worked while the arcs
+      // were chopped into sixteen pieces each and stopped working the moment
+      // they were not. (At morph 0 the straight runs correctly vanish - the
+      // arcs have met - which is why 0 is not in this list.)
+      const raw = shapeVerts(shape, 0, 0, 10, { morph: m });
+      const corners = shapeVerts(shape, 0, 0, 10, { morph: 1 }).length;
+      const arcs = raw.filter((q) => q.length > 2 && q[2]).length;
+      assert.equal(arcs, corners, `${shape}: morph ${m} has ${arcs} arcs for ${corners} corners`);
+      assert.equal(
+        raw.length - arcs,
+        corners,
+        `${shape}: morph ${m} left ${raw.length - arcs} straight runs for ${corners} edges`
+      );
     }
 
     // untouched at morph 1 - same vertex list as before the feature
@@ -1111,7 +1120,7 @@ console.log('all smoke checks passed');
     // edge midpoint, and min-over-max reads 0.99 for a shape that is plainly
     // still a hexagon. The radius of the circle through three consecutive
     // points is the tightest turn on the outline, which is the fillet itself.
-    const v = shapeVerts('hex', 0, 0, 10, { morph: big.morph });
+    const v = flattenBulges(shapeVerts('hex', 0, 0, 10, { morph: big.morph }));
     let tightest = Infinity;
     for (let i = 0; i < v.length; i++) {
       const [x1, y1] = v[i];

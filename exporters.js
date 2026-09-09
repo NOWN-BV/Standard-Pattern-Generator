@@ -531,14 +531,25 @@ function panelGeoCodes(geo, ox, oy) {
   return out;
 }
 
+/**
+ * A closed polyline, with BULGES where the outline curves.
+ *
+ * Group code 42 on a vertex is the tangent of a quarter of the sweep of the arc
+ * running to the next vertex - R12's own way of writing a curve, and the same
+ * thing parsePanelGeo reads on the way in. It matters here for size: a filleted
+ * corner written as sixteen straight segments made a 279-hole panel 2310 KB,
+ * where the same corner as one arc makes it 190 KB, and the arc is exact rather
+ * than close.
+ */
 function polyline(layer, verts, colorInt) {
   const out = ['0', 'POLYLINE', '8', layer];
   if (colorInt != null) out.push('420', String(colorInt));
   out.push('66', '1', '70', '1', '10', '0.0', '20', '0.0', '30', '0.0');
-  for (const [vx, vy] of verts) {
+  for (const v of verts) {
     out.push('0', 'VERTEX', '8', layer);
     if (colorInt != null) out.push('420', String(colorInt));
-    out.push('10', f3(vx), '20', f3(vy), '30', '0.0');
+    out.push('10', f3(v[0]), '20', f3(v[1]), '30', '0.0');
+    if (v.length > 2 && v[2]) out.push('42', Number(v[2]).toFixed(6));
   }
   out.push('0', 'SEQEND', '8', layer);
   return out;
