@@ -9,6 +9,7 @@
 //      MIN_PERF_AREA, or inside the edge keep-out.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { buildField, LIMITS, PANEL, quantileRank } from './pattern-core.js';
 import { PRESETS } from './presets.js';
 import { shapeVerts } from './shape-paths.js';
@@ -1147,5 +1148,51 @@ console.log('all smoke checks passed');
   assert.equal(ref.get('12.50'), '0.000', 'the stated small size must be a full circle');
   assert.equal(ref.get('35.00'), '1.000', 'the stated large size must keep the shape');
   console.log('the fillet rides the size ladder - one diameter, one part');
+
+  // -- A DESIGN NAMED FOR ITS OPENNESS HAS TO DELIVER IT --------------------
+  //
+  // The 50-35 family carries its open area in its name, and the number is not
+  // decoration - it is what the panel is specified on. It is reached by culling
+  // a full 35mm hex field: every hole is the same size, so open area is just
+  // the base times the share of holes left standing, and one cull ladder covers
+  // the flat designs and both ends of every transition.
+  //
+  // This guard exists because the family HAS drifted once already. Changing the
+  // perforation from a circle to a hexagon took 17 % off every one of them at a
+  // stroke - a hexagon of circumradius r has area 2.598 r squared against the
+  // circle's 3.1416 - and nothing said a word: the design called 10 % quietly
+  // became 8.2 %. Any future change of shape, pitch or diameter will move these
+  // the same way, and now it fails here instead of at the fabricator.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    const face = PANEL.faceW * PANEL.faceH;
+    const named = { '50-35-Noise 35%': 35, '50-35-Noise 25%': 25, '50-35-Noise 10%': 10 };
+    for (const [name, want] of Object.entries(named)) {
+      const d = DESIGNS[name];
+      assert.ok(d, `${name} is missing from designs.json`);
+      const f = buildField({ ...d });
+      const got = (f.stats.openArea / (d.cols * d.rows * face)) * 100;
+      assert.ok(
+        Math.abs(got - want) < 0.5,
+        `${name} is ${got.toFixed(2)} % open, and its name says ${want} %`
+      );
+    }
+    // and the ladder is one ladder: the transitions run between the same levels
+    const level = { 35: DESIGNS['50-35-Noise 35%'].cull, 25: DESIGNS['50-35-Noise 25%'].cull, 10: DESIGNS['50-35-Noise 10%'].cull };
+    const ends = {
+      '50-35-Noise 10-35 transition': [level[35], level[10]],
+      '50-35-Noise 10-25 transition': [level[25], level[10]],
+      '50-35-Noise 25-35 transition': [level[35], level[25]],
+      '50-35-Noise 10-solid transition': [level[10], 100],
+    };
+    for (const [name, [from, to]] of Object.entries(ends)) {
+      const d = DESIGNS[name];
+      assert.ok(d, `${name} is missing from designs.json`);
+      assert.equal(d.cullFrom, from, `${name} starts off the ladder`);
+      assert.equal(d.cull, to, `${name} ends off the ladder`);
+    }
+  }
+  console.log('the 50-35 family still delivers the open area in its name');
+
 
 }

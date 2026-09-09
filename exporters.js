@@ -711,6 +711,22 @@ export function toPayload(field, meta = {}) {
     designId: meta.designId || 'VEIL-SP-0001',
     designLabel: meta.designLabel || `Standard pattern ${p.lattice}/${p.modulation}`,
     openness: Number(field.stats.openPct.toFixed(2)),
+    // WHAT THAT PERCENTAGE IS OF, said out loud.
+    //
+    // Open area over the PERFORATED FACE of each panel, 596 x 1196, times the
+    // number of panels. Measure it against the 600 x 1200 module instead and it
+    // comes out about 1 % lower; measure it over the nested export extent, which
+    // carries a 100 mm gap between panels, and it is lower again by much more -
+    // a 10 % pattern nested 2 x 2 reads 7.2 % that way. All three are arithmetic
+    // on the same holes, so the only thing that settles which is right is the
+    // denominator, and it belongs in the file rather than in someone's head.
+    opennessBasis: {
+      openAreaMm2: Number(field.stats.openArea.toFixed(2)),
+      faceAreaMm2: p.cols * p.rows * PANEL.faceW * PANEL.faceH,
+      perPanelFace: `${PANEL.faceW} x ${PANEL.faceH}`,
+      panels: p.cols * p.rows,
+      note: 'open area / perforated face area; excludes the nesting gap between panels',
+    },
     unitSystem: 'metric',
     pattern: {
       name: meta.presetName || 'Standard pattern',
@@ -770,6 +786,9 @@ export function toRecipe(field, meta = {}) {
       fieldH: field.fieldH,
       holes: field.stats.placed,
       openPct: Number(field.stats.openPct.toFixed(3)),
+      // see opennessBasis in toPayload - open area over the perforated face
+      openAreaMm2: Number(field.stats.openArea.toFixed(2)),
+      faceAreaMm2: field.params.cols * field.params.rows * PANEL.faceW * PANEL.faceH,
       dropped: field.stats.dropped,
       shrunk: field.stats.shrunk,
     },
