@@ -1267,7 +1267,7 @@
     "cullBand": 5,
     "cullOrder": "blue",
     "cullSeed": 1,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 100,
@@ -1294,7 +1294,8 @@
     "zoom": 35,
     "presetId": "",
     "designName": "Noise-Gradient 1235",
-    "savedAt": "2026-08-24T13:22:41.586Z"
+    "savedAt": "2026-08-24T13:22:41.586Z",
+    "tileEdgeMm": 90
   },
   "Starlight-A": {
     "cols": 4,
@@ -1324,7 +1325,7 @@
     "cullBand": 5,
     "cullOrder": "blue",
     "cullSeed": 199,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 13,
@@ -1351,7 +1352,8 @@
     "zoom": 35,
     "presetId": "",
     "designName": "Starlight-A",
-    "savedAt": "2026-08-24T13:39:52.388Z"
+    "savedAt": "2026-08-24T13:39:52.388Z",
+    "tileEdgeMm": 90
   },
   "Starlight-B": {
     "cols": 4,
@@ -1381,7 +1383,7 @@
     "cullBand": 5,
     "cullOrder": "blue",
     "cullSeed": 220,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 13,
@@ -1408,7 +1410,8 @@
     "zoom": 30,
     "presetId": "",
     "designName": "Starlight-B",
-    "savedAt": "2026-08-24T13:41:45.399Z"
+    "savedAt": "2026-08-24T13:41:45.399Z",
+    "tileEdgeMm": 90
   },
   "Starlight-C": {
     "cols": 4,
@@ -1438,7 +1441,7 @@
     "cullBand": 5,
     "cullOrder": "blue",
     "cullSeed": 466,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 13,
@@ -1465,7 +1468,8 @@
     "zoom": 30,
     "presetId": "",
     "designName": "Starlight-C",
-    "savedAt": "2026-08-24T13:42:40.818Z"
+    "savedAt": "2026-08-24T13:42:40.818Z",
+    "tileEdgeMm": 90
   },
   "Starfield bloom": {
     "cols": 4,
@@ -1552,7 +1556,7 @@
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 608,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 100,
@@ -1579,7 +1583,8 @@
     "zoom": 55,
     "presetId": "",
     "designName": "Rain",
-    "savedAt": "2026-08-25T08:25:48.405Z"
+    "savedAt": "2026-08-25T08:25:48.405Z",
+    "tileEdgeMm": 90
   },
   "Rain B": {
     "cols": 4,
@@ -1609,7 +1614,7 @@
     "cullBand": 100,
     "cullOrder": "blue",
     "cullSeed": 608,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#8b8f94",
     "sizeContrast": 100,
@@ -1636,7 +1641,8 @@
     "zoom": 50,
     "presetId": "",
     "designName": "Rain B",
-    "savedAt": "2026-08-25T08:26:21.706Z"
+    "savedAt": "2026-08-25T08:26:21.706Z",
+    "tileEdgeMm": 90
   },
   "Cross": {
     "cols": 11,
@@ -3985,7 +3991,7 @@
     "cullMode": "gradient",
     "cullOrder": "blue",
     "cullSeed": 10,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#969696",
     "sizeContrast": 25,
@@ -4005,7 +4011,8 @@
     "showSeams": true,
     "zoom": 70,
     "presetId": "",
-    "savedAt": "2026-08-21T10:22:26.942Z"
+    "savedAt": "2026-08-21T10:22:26.942Z",
+    "tileEdgeMm": 90
   },
   "Ref-Cumula 4": {
     "cols": 8,
@@ -4033,7 +4040,7 @@
     "cullMode": "gradient",
     "cullOrder": "blue",
     "cullSeed": 1,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#737373",
     "sizeContrast": 0,
@@ -4053,7 +4060,8 @@
     "showSeams": true,
     "zoom": 55,
     "presetId": "",
-    "savedAt": "2026-08-21T10:27:35.677Z"
+    "savedAt": "2026-08-21T10:27:35.677Z",
+    "tileEdgeMm": 90
   },
   "Ref-Cumula 5": {
     "cols": 8,
@@ -4081,7 +4089,7 @@
     "cullMode": "gradient",
     "cullOrder": "blue",
     "cullSeed": 1,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "holeColor": "#ffffff",
     "panelColor": "#a3a3a3",
     "sizeContrast": 0,
@@ -4101,7 +4109,8 @@
     "showSeams": true,
     "zoom": 55,
     "presetId": "",
-    "savedAt": "2026-08-21T10:27:54.341Z"
+    "savedAt": "2026-08-21T10:27:54.341Z",
+    "tileEdgeMm": 90
   },
   "Sashiko vertical": {
     "cols": 4,

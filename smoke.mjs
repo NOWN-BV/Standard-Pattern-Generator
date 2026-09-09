@@ -10,7 +10,14 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildField, LIMITS, PANEL, quantileRank, tileLabelFor } from './pattern-core.js';
+import {
+  buildField,
+  LIMITS,
+  PANEL,
+  quantileRank,
+  tileLabelFor,
+  driverPeriod,
+} from './pattern-core.js';
 import { PRESETS } from './presets.js';
 import { shapeVerts, flattenBulges } from './shape-paths.js';
 import {
@@ -1519,6 +1526,65 @@ console.log('all smoke checks passed');
     }
   }
   console.log('the family shares one field, and a name with a percentage delivers it');
+
+  // -- ANY TILE MUST BUTT ANY TILE, IN EVERY P4 DESIGN THAT CLAIMS TO --------
+  //
+  // Not only in the 50-35 family. A P4 design lays four different panels; if
+  // they disagree about the holes STANDING ON a joint, the two halves of a
+  // shared hole are cut differently and the wall has a broken hole in it. Nine
+  // designs did - Noise-Gradient 1235, the three Starlights, Rain, Rain B and
+  // three Ref-Cumulas - all of them with tileBlendMm at 0, which makes
+  // tileBlend return 1 and leaves each tile running its own field to the very
+  // edge.
+  //
+  // Only designs that are meant to be four INTERCHANGEABLE panels are asked.
+  // Two other things also call themselves P4 and are not broken:
+  //   - a driver spanning the 2x2 unit (Noise, Wave, Checker, Torch, Vape,
+  //     Linear, Water, ...) makes the four panels four quarters of one picture;
+  //   - modScope 'run' stretches the driver over the whole wall on purpose.
+  // Both are filtered out here rather than excused, because for them the
+  // question does not arise.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    // Named, not silently skipped. Rain C and Rainfall Down survive the filter
+    // but are not panel-periodic in fact - Rainfall Down is a wave at 41
+    // degrees, which repeats on nothing the panel knows about.
+    const KNOWN = new Set(['Rain C', 'Rainfall Down']);
+    const qq = (v) => Math.round(v * 1e4) / 1e4;
+    const broken = [];
+    for (const [name, d] of Object.entries(DESIGNS)) {
+      if (d.tiling !== 'P4' && d.tiling !== 'P4R') continue;
+      if (d.modScope === 'run') continue;
+      let per;
+      try {
+        per = driverPeriod(d);
+      } catch {
+        continue;
+      }
+      if (Math.round(per.w) !== PANEL.moduleW || Math.round(per.h) !== PANEL.moduleH) continue;
+      const f = buildField({
+        ...d,
+        cols: d.tiling === 'P4R' ? 4 : 2,
+        rows: d.tiling === 'P4R' ? 1 : 2,
+      });
+      const jn = (i, side) => {
+        const out = [];
+        for (const { h, lx, ly } of panelHoles(f, f.panels[i])) {
+          if (side === 'B' && Math.abs(ly) < 0.5) out.push(`${qq(lx)},${qq(h.r)}`);
+          if (side === 'T' && Math.abs(ly - PANEL.moduleH) < 0.5) out.push(`${qq(lx)},${qq(h.r)}`);
+          if (side === 'L' && Math.abs(lx) < 0.5) out.push(`${qq(ly)},${qq(h.r)}`);
+          if (side === 'R' && Math.abs(lx - PANEL.moduleW) < 0.5) out.push(`${qq(ly)},${qq(h.r)}`);
+        }
+        return [...new Set(out)].sort().join('|');
+      };
+      const ok = ['B', 'T', 'L', 'R'].every((side) =>
+        f.panels.every((_, i) => jn(i, side) === jn(0, side))
+      );
+      if (!ok && !KNOWN.has(name)) broken.push(name);
+    }
+    assert.deepEqual(broken, [], `P4 designs whose tiles disagree on a joint: ${broken}`);
+  }
+  console.log('every interchangeable P4 design agrees with itself on all four joints');
 
 
 
