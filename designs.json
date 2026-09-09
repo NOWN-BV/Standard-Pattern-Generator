@@ -282,7 +282,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "uniform",
@@ -327,7 +327,7 @@
     "zoom": 50,
     "presetId": "",
     "designName": "Basic-50-35",
-    "savedAt": "2026-08-24T10:14:56.065Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "Basic-50-1225": {
     "cols": 2,
@@ -722,7 +722,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "uniform",
@@ -767,7 +767,7 @@
     "zoom": 30,
     "presetId": "",
     "designName": "50-35-Noise 35%",
-    "savedAt": "2026-08-24T11:48:39.203Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10%": {
     "cols": 2,
@@ -777,7 +777,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "uniform",
@@ -822,7 +822,7 @@
     "zoom": 30,
     "presetId": "",
     "designName": "50-35-Noise 10%",
-    "savedAt": "2026-08-24T11:51:27.518Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 25%": {
     "cols": 2,
@@ -832,7 +832,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "uniform",
@@ -878,7 +878,7 @@
     "zoom": 30,
     "presetId": "",
     "designName": "50-35-Noise 25%",
-    "savedAt": "2026-08-24T12:19:26.704Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10-35 transition": {
     "cols": 4,
@@ -888,7 +888,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "linear",
@@ -935,7 +935,7 @@
     "zoom": 95,
     "presetId": "",
     "designName": "50-35-Noise 10-35 transition",
-    "savedAt": "2026-08-24T12:39:22.664Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10-25 transition": {
     "cols": 5,
@@ -945,7 +945,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "linear",
@@ -992,7 +992,7 @@
     "zoom": 90,
     "presetId": "",
     "designName": "50-35-Noise 10-25 transition",
-    "savedAt": "2026-08-24T12:36:38.947Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 25-35 transition": {
     "cols": 4,
@@ -1002,7 +1002,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "linear",
@@ -1049,7 +1049,7 @@
     "zoom": 85,
     "presetId": "",
     "designName": "50-35-Noise 25-35 transition",
-    "savedAt": "2026-08-24T12:40:56.594Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "50-35-Noise 10-solid transition": {
     "cols": 4,
@@ -1059,7 +1059,7 @@
     "pitch": 50,
     "staggerFrac": 0.5,
     "latticeAngle": 0,
-    "shape": "circle",
+    "shape": "hex",
     "minDia": 35,
     "maxDia": 35,
     "modulation": "linear",
@@ -1106,7 +1106,7 @@
     "zoom": 105,
     "presetId": "",
     "designName": "50-35-Noise 10-solid transition",
-    "savedAt": "2026-08-24T12:43:49.193Z"
+    "savedAt": "2026-09-09T08:53:15.262Z"
   },
   "Noise-Gradient 1235": {
     "cols": 4,
