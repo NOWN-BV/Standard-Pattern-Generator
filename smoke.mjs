@@ -958,21 +958,41 @@ console.log('all smoke checks passed');
   for (const pitch of [40, 50, 60, 75]) {
     const a = buildField({ ...B, lattice: 'hex', pitch });
     const b = buildField({ ...B, lattice: 'hexV', pitch });
-    const cols = (f) => [...new Set(f.holes.map((h) => +h.cx.toFixed(2)))].sort((x, y) => x - y);
-    const rows = (f) => [...new Set(f.holes.map((h) => +h.cy.toFixed(2)))].sort((x, y) => x - y);
-    // the turned lattice swaps the two spacings
-    assert.ok(
-      Math.abs(cols(b)[1] - cols(b)[0] - (rows(a)[1] - rows(a)[0])) < 1e-6,
-      `pitch ${pitch}: turned column spacing must equal the upright row spacing`
-    );
-    assert.ok(
-      Math.abs(rows(b)[1] - rows(b)[0] - (cols(a)[1] - cols(a)[0])) < 1e-6,
-      `pitch ${pitch}: turned row spacing must equal the upright column spacing`
-    );
-    // and it still meets both joints - that is what a transpose buys over a rotation
+    // The turn is a transposed FAMILY, not the same numbers swapped: each
+    // snaps its own spacing to divide the module, so at some pitches they
+    // land on different values - at 75 the upright rows are 66.67 and the
+    // turned columns 60.00. What makes it a 90 degree turn is the DIRECTIONS
+    // the neighbours lie in: upright hex has a horizontal pair and no
+    // vertical one, and the turned form is the other way round.
+    const dirs = (f) => {
+      const mid = f.holes.find((h) => h.cx > 200 && h.cx < 900 && h.cy > 300 && h.cy < 2000);
+      return f.holes
+        .map((h) => ({
+          d: Math.hypot(h.cx - mid.cx, h.cy - mid.cy),
+          a: Math.atan2(h.cy - mid.cy, h.cx - mid.cx),
+        }))
+        .filter((v) => v.d > 0.1)
+        .sort((x, y) => x.d - y.d)
+        .slice(0, 6)
+        .map((v) => Math.round(Math.abs((v.a * 180) / Math.PI)));
+    };
+    const hasHoriz = (f) => dirs(f).some((d) => d === 0 || d === 180);
+    const hasVert = (f) => dirs(f).some((d) => d === 90);
+    assert.ok(hasHoriz(a), pitch + ": upright hex must have a horizontal neighbour pair");
+    assert.ok(!hasVert(a), pitch + ": upright hex must NOT have a vertical pair");
+    assert.ok(hasVert(b), pitch + ": the turned hex must have a vertical neighbour pair");
+    assert.ok(!hasHoriz(b), pitch + ": the turned hex must NOT have a horizontal pair");
+    // and both still meet both joints - that is what a transpose buys over a
+    // rotation, which cannot land on two panel edges at once
     for (const f of [a, b]) {
-      assert.ok(f.holes.some((h) => Math.abs(h.cx - PANEL.moduleW) < 1e-6), `pitch ${pitch}: no hole on the vertical joint`);
-      assert.ok(f.holes.some((h) => Math.abs(h.cy - PANEL.moduleH) < 1e-6), `pitch ${pitch}: no hole on the horizontal joint`);
+      assert.ok(
+        f.holes.some((h) => Math.abs(h.cx - PANEL.moduleW) < 1e-6),
+        pitch + ": no hole on the vertical joint"
+      );
+      assert.ok(
+        f.holes.some((h) => Math.abs(h.cy - PANEL.moduleH) < 1e-6),
+        pitch + ": no hole on the horizontal joint"
+      );
     }
   }
   console.log('the hex lattice turns 90 degrees and still meets both joints');
