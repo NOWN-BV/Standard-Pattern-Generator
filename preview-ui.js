@@ -881,6 +881,16 @@ const SPEC = [
   // leave this at 0 and drop 'min dia' so the driver shrinks holes away.
   { key: 'cull', kind: 'range', label: 'holes removed', min: 0, max: 95, step: 1, unit: '%' },
   {
+    key: 'cullEven',
+    kind: 'range',
+    label: 'share removal along a row',
+    min: 0,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (st) => st.cull > 0,
+  },
+  {
     key: 'cullDriver',
     kind: 'select',
     label: 'gradient follows',
@@ -1712,6 +1722,8 @@ const TIPS = {
     'How much of the panel the change is spread over. 100% ramps edge to edge. 50% holds the start density over the first quarter, changes across the middle half, then holds the end density over the last quarter - so both halves of a transition panel still read as their neighbours.',
   cullFade:
     'Softens the edge of the void. Holes just short of being removed shrink toward nothing instead of stopping at full size, so the pattern dissolves rather than ending on a hard rim. 0 = a crisp boundary.',
+  cullEven:
+    'How evenly the removal is shared out along each row. At 0 one field is thresholded over the whole panel, so how many holes a row loses is chance - on a 24-hole row, several either way. That is what makes a transition panel look wrong: its trend falls about half a point of open area per row while the noise is nearly three, so rows visibly go back UP on the way down. Turning this up ranks each hole among its own row as well, and at 100 every row loses exactly its share, so the fade is as straight as the ramp behind it. The cost is the cloud - a void spanning several rows has to give holes back to hold each row's count - so it reads more as texture and less as shape the higher it goes.',
   cullShape:
     'The SHAPE the removal takes. Scatter decides each hole on its own, so voids are single holes spread through the field - even or speckled, but never grouped. Clouds drives removal from a smooth noise field, so neighbouring holes vanish together and the gaps form soft organic clusters. Clouds is the one that reads like a vapour or dissolve. PATTERN ignores both and ranks the DRIVER itself, so the edge is geometric - holes stop exactly where the pattern does, rather than dithering out. That is what keeps a fine pitch sharp: under about 20mm pitch there are only a few millimetres between the smallest legal hole and the largest the web allows, so size can no longer carry the pattern, but removal can.',
   cullScale:

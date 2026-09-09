@@ -504,6 +504,22 @@ export const DEFAULTS = {
   placement: 'lattice', // 'lattice' | 'packed'
   packDensity: 70, // packed only: how hard to push circles together, 0-100
   packVariation: 60, // packed only: spread of sizes, 0 = all one size
+  // HOW EVENLY THE REMOVAL IS SHARED OUT ALONG A ROW.
+  //
+  // 0 thresholds one rank field over the whole panel: how many holes a given
+  // row loses is then a matter of chance, and on a 24-hole row the swing is
+  // several holes either way. Across a transition that is fatal to the read -
+  // measured on the 10-30 panel, the trend falls 0.50 points of open area per
+  // row while the row-to-row noise is 2.70, so the gradient is invisible next
+  // to it and rows plainly go back UP on the way down.
+  //
+  // Above 0 each hole is ranked among ITS OWN ROW as well, and the two ranks
+  // are mixed. At 100 every row loses exactly its share, so the fade is as
+  // straight as the ramp driving it. The cost is the cloud: a void spanning
+  // several rows has to give holes back to keep each row's count, so the
+  // bigger the number the more the removal reads as texture and the less as
+  // shape. It is one field either way, so two designs that share it still meet.
+  cullEven: 0,
   cullShape: 'scatter', // 'scatter' | 'clouds'
   cullScale: 400, // clouds only: blob size in mm
   // Cluster SHAPE. 100 = round; below stretches them wide, above stretches
@@ -3232,7 +3248,78 @@ export function buildField(params) {
       };
     })();
     stats.cullRankedOnTile = !!rankOnTile;
-    const pooled = rankOnTile ? rounded.map(rankOnTile) : quantileRank(rounded);
+    const pooledRaw = rankOnTile ? rounded.map(rankOnTile) : quantileRank(rounded);
+
+    // ── AND A SECOND RANK, TAKEN WITHIN EACH ROW ─────────────────────────
+    //
+    // See cullEven. Built on the same canonical population as the rank above -
+    // one panel's rows, once per tile - so it does not move when panels are
+    // added either, and two designs on one field agree on it hole for hole.
+    const evenAmt = clamp(p.cullEven ?? 0, 0, 100) / 100;
+    let pooled = pooledRaw;
+    if (evenAmt > 0 && rankOnTile) {
+      const rowOfPt = new Map(); // row key -> point indices
+      for (let i = 0; i < pts.length; i++) {
+        const k = Math.round(pts[i].y * 1e3);
+        if (!rowOfPt.has(k)) rowOfPt.set(k, []);
+        rowOfPt.get(k).push(i);
+      }
+      // Per ROW AND TILE, not per row. Pooling the four tiles into one row
+      // ranking leaves the count on any ONE of them a matter of chance again -
+      // it draws 24 of the 96 values - which is most of what it was meant to
+      // remove. Split by tile and the row loses exactly its share on the panel
+      // that is actually cut. The joint rows are unaffected: every tile carries
+      // the same values there, so they rank the same however they are grouped.
+      const byRow = new Map(); // row|tile -> (value -> rank within it)
+      for (const [k, idxs] of rowOfPt) {
+        for (let v = 0; v < fields.length; v++) {
+          const vals = idxs.map((i) => {
+            const w = tileBlend(pts[i].x, pts[i].y, p.tileBlendMm ?? 150);
+            return Math.round((fields[0][i] * (1 - w) + fields[v][i] * w) * 1e9) / 1e9;
+          });
+          // RANKED OVER n, NOT OVER n-1.
+          //
+          // quantileRank puts its top group at exactly 1, which is right for a
+          // whole field: the largest hole has to reach max dia. Here it is
+          // wrong twice over. Removal keeps a hole when its rank is not below
+          // the threshold, so a row's top hole survives a threshold of 1 - and
+          // the solid end of the 10-solid panel stopped being solid, one hole
+          // per row. And a fraction of a row is i/n by definition: over n-1 the
+          // count comes out one short wherever the fraction is high.
+          const idx = vals.map((_, i) => i).sort((x, y) => vals[x] - vals[y]);
+          const m = new Map();
+          for (let i = 0; i < idx.length; ) {
+            let j = i;
+            while (j + 1 < idx.length && vals[idx[j + 1]] === vals[idx[i]]) j++;
+            if (!m.has(vals[idx[i]])) m.set(vals[idx[i]], i / idx.length);
+            i = j + 1;
+          }
+          byRow.set(k + '|' + v, m);
+        }
+      }
+      // NOT ON A SIDE JOINT, THOUGH.
+      //
+      // A hole standing on a vertical joint has the same field value on every
+      // tile - that is what makes the panels meet - but its rank WITHIN ITS ROW
+      // does not, because the rest of that row is interior and every tile draws
+      // its own. Evening those holes therefore split the four tiles apart and
+      // broke the side joints outright. They keep the shared rank instead. It
+      // costs one column of twenty-four, and nothing on the top or bottom rows,
+      // where the whole row is shared and the two rankings agree anyway.
+      const onSideJoint = (c) =>
+        Math.abs(c.sx) < 1e-6 || Math.abs(c.sx - PANEL.moduleW) < 1e-6;
+      pooled = candidates.map((c, i) => {
+        if (onSideJoint(c)) return pooledRaw[i];
+        const m = byRow.get(Math.round(c.sy * 1e3) + '|' + (c.variant ?? 0));
+        const r = m && m.get(rounded[i]);
+        if (r === undefined) return pooledRaw[i];
+        // Quantised like every other field here: a mix of two ranks lands on
+        // values that differ in the last bits between one hole and its twin on
+        // another panel, and a hole sitting exactly on the threshold then goes
+        // one way here and the other way there. One hole in 231 did.
+        return Math.round((pooledRaw[i] * (1 - evenAmt) + r * evenAmt) * 1e9) / 1e9;
+      });
+    }
     cullFellBack = fellBack;
 
     for (let ci = 0; ci < candidates.length; ci++) {

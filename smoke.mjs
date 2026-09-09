@@ -1241,7 +1241,53 @@ console.log('all smoke checks passed');
       // way, because the ramp counts rows and reaches 0 and 1 at the last of
       // them whatever the band; the band only decides how abrupt the middle is.
       assert.equal(d.cullBand, 100, `${name}: the fade must run the whole panel`);
+
       const f = buildField({ ...d });
+      // AND IT HAS TO READ AS A FADE, not just be one on paper.
+      //
+      // The threshold was always a straight line; what you saw was not. Open
+      // area was measured row by row and fitted: the trend fell 0.5 points a
+      // row while the row-to-row noise was 2.7, so rows visibly went back UP on
+      // the way down, and the panel lost a third of its nominal span to the
+      // scatter. Sharing the removal out along each row (cullEven) cut the
+      // noise to 1.4 and returned the span - 19.0 points of the nominal 20 on
+      // the 10-30 panel. Held here so it cannot quietly go back.
+      const prof = (() => {
+        const by = new Map();
+        for (const h of f.holes) {
+          const k = Math.round(h.cy);
+          by.set(k, (by.get(k) || 0) + h.area);
+        }
+        const ys = [...by.keys()].sort((x, y) => x - y);
+        const band = PANEL.moduleH / (ys.length - 1);
+        const v = ys.map((y) => (by.get(y) / (d.cols * PANEL.moduleW * band)) * 100);
+        const n = v.length;
+        let sx = 0;
+        let sy = 0;
+        let sxx = 0;
+        let sxy = 0;
+        v.forEach((val, i) => {
+          sx += i;
+          sy += val;
+          sxx += i * i;
+          sxy += i * val;
+        });
+        const m = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+        const c = (sy - m * sx) / n;
+        return {
+          dev: v.reduce((a, val, i) => a + Math.abs(val - (m * i + c)), 0) / n,
+          span: Math.abs(m) * (n - 1),
+        };
+      })();
+      assert.ok(
+        prof.dev < 1.8,
+        `${name}: the fade wanders ${prof.dev.toFixed(2)} points off a straight line`
+      );
+      const nominal = top === 0 ? bottom : bottom - top;
+      assert.ok(
+        prof.span > nominal * 0.6,
+        `${name}: only ${prof.span.toFixed(1)} of its ${nominal} points of fade survive the scatter`
+      );
       for (let i = 0; i < f.panels.length; i++) {
         assert.equal(
           joint(f, i, 'B'),
@@ -1316,6 +1362,7 @@ console.log('all smoke checks passed');
       'cullRough',
       'cullRandom',
       'cullOrder',
+      'cullEven',
       'lattice',
       'pitch',
       'shape',
