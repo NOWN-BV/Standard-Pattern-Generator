@@ -1095,7 +1095,47 @@ console.log('all smoke checks passed');
   const on = buildField({ ...B, shapeMorph: 100 });
   const by = [...on.holes].sort((a, b) => a.r - b.r);
   assert.ok(Math.abs(by[0].morph - 0) < 1e-6, 'the smallest hole must be fully rounded');
-  assert.ok(Math.abs(by[by.length - 1].morph - 1) < 1e-6, 'the largest must keep the shape');
+  // The largest keeps the SHAPE, but not a true point: a tenth of the fillet
+  // stays on it, because a field where every hole but one has had its corners
+  // taken off makes that one read as a different shape rather than the end of
+  // a range. Circularity says it is still a hexagon and not a circle.
+  const big = by[by.length - 1];
+  assert.ok(
+    Math.abs(big.morph - 0.9) < 1e-6,
+    `the largest must keep a light fillet, got morph ${big.morph}`
+  );
+  {
+    // Measured as the CORNER RADIUS, not as circularity: a filleted polygon
+    // carries its straight edges as two endpoints and nothing between, so the
+    // nearest sampled point to the centre is a tangent point rather than an
+    // edge midpoint, and min-over-max reads 0.99 for a shape that is plainly
+    // still a hexagon. The radius of the circle through three consecutive
+    // points is the tightest turn on the outline, which is the fillet itself.
+    const v = shapeVerts('hex', 0, 0, 10, { morph: big.morph });
+    let tightest = Infinity;
+    for (let i = 0; i < v.length; i++) {
+      const [x1, y1] = v[i];
+      const [x2, y2] = v[(i + 1) % v.length];
+      const [x3, y3] = v[(i + 2) % v.length];
+      const A = Math.hypot(x2 - x1, y2 - y1);
+      const Bs = Math.hypot(x3 - x2, y3 - y2);
+      const C = Math.hypot(x3 - x1, y3 - y1);
+      const sp = (A + Bs + C) / 2;
+      const ar = Math.sqrt(Math.max(0, sp * (sp - A) * (sp - Bs) * (sp - C)));
+      if (ar < 1e-9) continue;
+      tightest = Math.min(tightest, (A * Bs * C) / (4 * ar));
+    }
+    assert.ok(tightest > 0.03 * 10, `the largest is barely filleted (${tightest.toFixed(2)} on r=10)`);
+    assert.ok(tightest < 0.20 * 10, `the largest is rounding away (${tightest.toFixed(2)} on r=10)`);
+  }
+  // and turning it off puts a true point back
+  {
+    const sharp = buildField({ ...B, shapeMorph: 100, shapeMorphMax: 0 }).holes
+      .slice()
+      .sort((a, b) => a.r - b.r)
+      .pop();
+    assert.ok(Math.abs(sharp.morph - 1) < 1e-6, 'shapeMorphMax 0 must leave the shape as drawn');
+  }
   // the area reported is the area of the rounded hole, not of the polygon
   const small = by[0];
   assert.ok(
@@ -1125,9 +1165,12 @@ console.log('all smoke checks passed');
   for (const n of [2, 3, 4, 6]) {
     const L = ladder({ sizeLevels: n });
     assert.equal(L.length, n, `${n} size levels must give ${n} diameters`);
+    // The rungs run from the small end to the large one - 0 to 0.9 with the
+    // default light fillet on the largest, not 0 to 1.
+    const TOP = 1 - 10 / 100;
     L.forEach(([, f], i) => {
       assert.ok(
-        Math.abs(+f - i / (n - 1)) < 1e-3, // f is rounded to 3 places above
+        Math.abs(+f - (TOP * i) / (n - 1)) < 1e-3, // f is rounded to 3 places above
         `level ${i} of ${n}: fillet ${f} is off the ladder`
       );
     });
@@ -1146,7 +1189,7 @@ console.log('all smoke checks passed');
   }
   // both ends land exactly: the stated small size is a circle, the large one is not
   assert.equal(ref.get('12.50'), '0.000', 'the stated small size must be a full circle');
-  assert.equal(ref.get('35.00'), '1.000', 'the stated large size must keep the shape');
+  assert.equal(ref.get('35.00'), '0.900', 'the stated large size must keep the shape, lightly filleted');
   console.log('the fillet rides the size ladder - one diameter, one part');
 
   // -- THE 50-35 FAMILY: ONE FIELD, THREE LEVELS, FOUR TRANSITIONS ---------

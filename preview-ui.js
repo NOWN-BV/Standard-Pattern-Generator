@@ -320,6 +320,19 @@ const SPEC = [
       s.shape === 'triangle' || s.shape === 'star',
   },
   {
+    key: 'shapeMorphMax',
+    kind: 'range',
+    label: 'fillet the large holes',
+    min: 0,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (s) =>
+      s.shapeMorph > 0 &&
+      (s.shape === 'hex' || s.shape === 'diamond' || s.shape === 'square' ||
+        s.shape === 'triangle' || s.shape === 'star'),
+  },
+  {
     key: 'shapeCurve',
     kind: 'range',
     label: 'side curve',
@@ -1649,6 +1662,8 @@ const TIPS = {
     'What figure "distance from the centre" draws. 1 is a straight-sided DIAMOND, and below 1 its sides bow INWARD - the two points still meet at a corner, joined by a curve, which is the playing-card diamond. 2 is the circle this has always drawn, and higher values head toward a rectangle. Point it at the tiling unit rather than the panel and the figure is assembled out of four panels rather than repeated on each one.',
   shapeMorph:
     'FILLETS the SMALL holes toward circles while the large ones keep the full shape, so the gradient is carried by the change of shape as much as by the change of size - a hexagon perforation that dissolves into a dot screen rather than hexagons that merely shrink. It is a real fillet, one radius on every corner: the corners become arcs and the edges stay straight, unlike pulling the outline toward a circle, which leaves every corner a corner. At 0 every hole is the shape as drawn; at 100 the smallest hole is a plain circle of the same diameter.',
+  shapeMorphMax:
+    'How much fillet the LARGEST holes carry. At 0 they are the shape exactly as drawn, which is the honest end of the range and also the one that sticks out: every other hole has had its corners taken off by something, so the biggest reads as a different shape rather than the same one at the end of a ladder. A tenth is about 1.5mm of corner radius on a 35mm hexagon - enough to belong, not enough to stop being a hexagon. Set this equal to the small-hole figure for one light fillet across the whole field.',
   shapeCurve:
     'How the two sides between the tips bend. 1 is straight - a plain rhombus. Below 1 they pinch inward and it reads as a playing-card diamond; above 1 they bow out, reaching an ellipse at 2. The two end points stay sharp at every setting. Bowing out costs hole size: at 2 the shape is a circle, which on a square grid has to be root 2 smaller than the rhombus to keep the same web.',
   curveMax:

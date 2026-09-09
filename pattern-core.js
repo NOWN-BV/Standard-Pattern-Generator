@@ -285,6 +285,14 @@ export const DEFAULTS = {
   // a field read as a hexagon perforation that dissolves into a dot screen
   // rather than as hexagons that merely shrink.
   shapeMorph: 0,
+  // AND A LITTLE ON THE LARGEST, so it is not the one sharp thing in the
+  // field. Every other hole in a fillet transition has had its corners taken
+  // off by some amount; leave the biggest at a true point and it reads as a
+  // different shape rather than the same one at the end of a range. A tenth of
+  // the available fillet is 1.54mm of corner radius on a 35mm hexagon - enough
+  // to belong, not enough to stop being a hexagon. It applies only while
+  // shapeMorph is on; set the two equal for one light fillet everywhere.
+  shapeMorphMax: 10,
   shapeCurve: 1,
   // Driven the same way ratioMax drives the proportion: 0 leaves the curve
   // fixed, above 0 it runs from shapeCurve to this across the field.
@@ -3659,6 +3667,7 @@ export function buildField(params) {
     const dq = (p.ratioMax ?? 0) > 0;
     const dk = (p.curveMax ?? 0) > 0;
     const dm = clamp(p.shapeMorph ?? 0, 0, 100) / 100;
+    const dmTop = clamp(p.shapeMorphMax ?? 0, 0, 100) / 100;
     for (const c of candidates) {
       // The fade's field when it has been pointed at the proportion, the main
       // driver otherwise. Reading one or the other rather than both keeps this
@@ -3685,7 +3694,10 @@ export function buildField(params) {
       if (dm > 0) {
         const span = maxR - minR;
         const u = span > 1e-9 ? clamp((c.r - minR) / span, 0, 1) : clamp(t, 0, 1);
-        c.morph = 1 - dm * (1 - u);
+        // Both ends of the ladder carry a fillet: the full amount at the
+        // small end, a light one at the large, running between them the same
+        // way the size does.
+        c.morph = 1 - (dm + (dmTop - dm) * u);
       }
       if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }
