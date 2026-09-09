@@ -1151,12 +1151,11 @@ console.log('all smoke checks passed');
 
   // -- THE 50-35 FAMILY: ONE FIELD, THREE LEVELS, FOUR TRANSITIONS ---------
   //
-  // TWO FAMILIES NOW, and every guarantee below is asked of both. They are the
-  // same geometry cut on two different removal fields - a cloud, which leaves
-  // connected voids, and a scattered rank, which spreads them. Neither is more
-  // correct; they look different and a job picks one. What is NOT optional is
-  // that each of them meets itself.
-  const FAMILIES = ['50-35-Noise', '50-35-Scatter'];
+  // One family, listed rather than named inline. A second was built on a
+  // scattered rank instead of a cloud and then dropped; the shape of the checks
+  // is kept, so bringing another back is one entry here and nothing else.
+  // Whatever is in this list, each family must meet itself.
+  const FAMILIES = ['50-35-Noise'];
 
   // Each family is built on its 30 %: a uniform lattice at pitch 50 with
   // a 35mm hexagon at every node, thinned by cloud removal to the open area in
@@ -1262,7 +1261,7 @@ console.log('all smoke checks passed');
     }
     }
   }
-  console.log('both 50-35 families: named open area, P4 joints, transitions that meet both levels');
+  console.log('the 50-35 family: named open area, P4 joints, transitions that meet both levels');
   // -- A PANEL IS A PART. IT CANNOT DEPEND ON HOW MANY YOU RENDERED -------
   //
   // The cull threshold used to be ranked over the candidates of the whole
@@ -1355,7 +1354,7 @@ console.log('all smoke checks passed');
       );
     }
   }
-  console.log('each family shares one field, and a name with a percentage delivers it');
+  console.log('the family shares one field, and a name with a percentage delivers it');
 
 
 

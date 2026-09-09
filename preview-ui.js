@@ -1955,8 +1955,9 @@ function localWrite(all) {
  *
  * localStorage is scoped to the browser PROFILE, and a preview pane often gets
  * a fresh profile - which silently lost every saved design between sessions.
- * Disk is the source of truth; localStorage is kept in step as a convenience
- * copy so file:// use still works.
+ * Disk is the source of truth in both directions: it says what a design is AND
+ * which designs there are. localStorage is written from it as a convenience
+ * copy so file:// use still works, and is never read back over it.
  */
 async function loadStore() {
   try {
@@ -1964,17 +1965,22 @@ async function loadStore() {
     if (r.ok) {
       cache = await r.json();
       storeMode = 'disk';
-      // Merge anything that only exists locally, so a design saved before the
-      // server endpoint existed is not stranded.
-      const local = localRead();
-      let merged = false;
-      for (const [k, v] of Object.entries(local)) {
-        if (!(k in cache)) {
-          cache[k] = v;
-          merged = true;
-        }
-      }
-      if (merged) await persist();
+      // NO MERGE BACK FROM localStorage. DISK IS THE LIBRARY.
+      //
+      // This used to copy in anything the browser had that the file did not,
+      // and then write the result to disk - on LOAD, before the page had done
+      // anything. Which meant a deletion could not stick: the file was edited,
+      // any tab that had ever seen the old library was refreshed, and every
+      // design that had just been removed came straight back, without anyone
+      // pressing save. It happened three times in one afternoon, twice
+      // silently, and the second family it resurrected was on a stale removal
+      // seed - designs that looked right in every number and would have joined
+      // nothing.
+      //
+      // The local copy stays, and it is still what file:// use reads. It is
+      // just no longer allowed to decide what EXISTS. A design deleted from
+      // designs.json is deleted.
+      localWrite(cache);
       return cache;
     }
   } catch {
