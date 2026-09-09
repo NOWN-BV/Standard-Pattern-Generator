@@ -1151,7 +1151,14 @@ console.log('all smoke checks passed');
 
   // -- THE 50-35 FAMILY: ONE FIELD, THREE LEVELS, FOUR TRANSITIONS ---------
   //
-  // The family is built on 50-35-Noise 30%: a uniform lattice at pitch 50 with
+  // TWO FAMILIES NOW, and every guarantee below is asked of both. They are the
+  // same geometry cut on two different removal fields - a cloud, which leaves
+  // connected voids, and a scattered rank, which spreads them. Neither is more
+  // correct; they look different and a job picks one. What is NOT optional is
+  // that each of them meets itself.
+  const FAMILIES = ['50-35-Noise', '50-35-Scatter'];
+
+  // Each family is built on its 30 %: a uniform lattice at pitch 50 with
   // a 35mm hexagon at every node, thinned by cloud removal to the open area in
   // the name. The other two levels are the SAME cloud at a different threshold,
   // which is the whole point - a panel of one has to meet a panel of another
@@ -1177,11 +1184,12 @@ console.log('all smoke checks passed');
     // ONE: the name is the specification. Turning the perforation from a circle
     // into a hexagon once took 17 % off every one of these and nothing said a
     // word - the design called 10 % was delivering 8.2 %.
+    for (const FAM of FAMILIES) {
     const rowOf = {};
     for (const [name, want] of [
-      ['50-35-Noise 30%', 30],
-      ['50-35-Noise 20%', 20],
-      ['50-35-Noise 10%', 10],
+      [`${FAM} 30%`, 30],
+      [`${FAM} 20%`, 20],
+      [`${FAM} 10%`, 10],
     ]) {
       const d = DESIGNS[name];
       assert.ok(d, `${name} is missing from designs.json`);
@@ -1219,14 +1227,21 @@ console.log('all smoke checks passed');
     // lattice rows, so it lands on exactly 0 at the bottom and exactly 1 at the
     // top and the thresholds there are exactly the two levels.
     for (const [name, bottom, top] of [
-      ['50-35-Noise 10-20 transition', 20, 10],
-      ['50-35-Noise 10-30 transition', 30, 10],
-      ['50-35-Noise 20-30 transition', 30, 20],
-      ['50-35-Noise 10-solid transition', 10, 0],
+      [`${FAM} 10-20 transition`, 20, 10],
+      [`${FAM} 10-30 transition`, 30, 10],
+      [`${FAM} 20-30 transition`, 30, 20],
+      [`${FAM} 10-solid transition`, 10, 0],
     ]) {
       const d = DESIGNS[name];
       assert.ok(d, `${name} is missing from designs.json`);
       assert.equal(d.modulation, 'ramp', `${name} must ride a ramp - anything else wraps`);
+      // AND IT MUST USE THE WHOLE PANEL. cullBand squeezes the ramp into a
+      // centred fraction of the driver, so at 50 a transition panel was a flat
+      // quarter, a steep half and a flat quarter - a step you can see from
+      // across the room. At 100 it changes on every row. The ends land either
+      // way, because the ramp counts rows and reaches 0 and 1 at the last of
+      // them whatever the band; the band only decides how abrupt the middle is.
+      assert.equal(d.cullBand, 100, `${name}: the fade must run the whole panel`);
       const f = buildField({ ...d });
       for (let i = 0; i < f.panels.length; i++) {
         assert.equal(
@@ -1245,8 +1260,9 @@ console.log('all smoke checks passed');
       assert.ok(L.every((r) => r === L[0]), `${name}: the tiles disagree on the left joint`);
       assert.equal(joint(f, 0, 'R'), L[0], `${name}: left and right joints differ`);
     }
+    }
   }
-  console.log('the 50-35 family: named open area, P4 joints, transitions that meet both levels');
+  console.log('both 50-35 families: named open area, P4 joints, transitions that meet both levels');
   // -- A PANEL IS A PART. IT CANNOT DEPEND ON HOW MANY YOU RENDERED -------
   //
   // The cull threshold used to be ranked over the candidates of the whole
@@ -1267,7 +1283,7 @@ console.log('all smoke checks passed');
         .sort()
         .join('|');
     };
-    for (const name of Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-Noise'))) {
+    for (const name of Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-'))) {
       const d = DESIGNS[name];
       const ref = partOf(d, 1, 1);
       for (const [c, r] of [
@@ -1309,16 +1325,22 @@ console.log('all smoke checks passed');
       'tiling',
       'tileBlendMm',
     ];
-    const fam = Object.keys(DESIGNS).filter((k) => k.startsWith('50-35-Noise'));
-    assert.equal(fam.length, 7, `the family is three levels and four transitions, found ${fam.length}: ${fam}`);
-    const ref = DESIGNS[fam[0]];
-    for (const n of fam)
-      for (const f of CLOUD)
-        assert.deepEqual(
-          DESIGNS[n][f],
-          ref[f],
-          `${n} differs from ${fam[0]} on ${f} - it cannot meet the rest of the family`
-        );
+    for (const FAM of FAMILIES) {
+      const fam = Object.keys(DESIGNS).filter((k) => k.startsWith(FAM));
+      assert.equal(
+        fam.length,
+        7,
+        `${FAM} is three levels and four transitions, found ${fam.length}: ${fam}`
+      );
+      const ref = DESIGNS[fam[0]];
+      for (const n of fam)
+        for (const f of CLOUD)
+          assert.deepEqual(
+            DESIGNS[n][f],
+            ref[f],
+            `${n} differs from ${fam[0]} on ${f} - it cannot meet the rest of its family`
+          );
+    }
 
     // and any design that puts a percentage in its name has to deliver it
     const face = PANEL.faceW * PANEL.faceH;
@@ -1333,7 +1355,7 @@ console.log('all smoke checks passed');
       );
     }
   }
-  console.log('the family shares one cloud, and a name with a percentage delivers it');
+  console.log('each family shares one field, and a name with a percentage delivers it');
 
 
 
