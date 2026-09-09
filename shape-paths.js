@@ -22,13 +22,12 @@ export const TAU = Math.PI * 2;
 // those are defined by a proportion rather than by corners, and they already
 // have their own controls for it.
 const MORPHABLE = new Set(['hex', 'diamond', 'square', 'triangle', 'star']);
-const MORPH_SEGS = 48;
 
 /**
  * How far the polygon's own boundary is from its centre at this angle.
  * Ray-cast rather than assumed regular: 'square' has a circumradius of 1.131r
  * and 'diamond' is a rhombus, so a formula for a regular n-gon would misplace
- * both of them.
+ * both of them. Used only by the fallback for shapes that are not convex.
  */
 function polyRadiusAt(verts, cx, cy, ang) {
   const dx = Math.cos(ang);
@@ -48,26 +47,179 @@ function polyRadiusAt(verts, cx, cy, ang) {
   return best;
 }
 
+const ARC_SEGS = 16; // segments per corner arc
+
+/** Signed area; positive when the ring runs counter-clockwise. */
+function signedArea(v) {
+  let s = 0;
+  for (let i = 0; i < v.length; i++) {
+    const a = v[i];
+    const b = v[(i + 1) % v.length];
+    s += a[0] * b[1] - b[0] * a[1];
+  }
+  return s / 2;
+}
+
+/** True when every turn goes the same way. */
+function isConvex(v) {
+  let sign = 0;
+  for (let i = 0; i < v.length; i++) {
+    const a = v[i];
+    const b = v[(i + 1) % v.length];
+    const c = v[(i + 2) % v.length];
+    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(z) < 1e-12) continue;
+    const s = z > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) return false;
+  }
+  return true;
+}
+
 /**
- * ROUNDED OFF TOWARD A CIRCLE.
+ * A FILLET OF ONE RADIUS, WHICH IS WHAT A FILLET IS.
  *
- * morph 1 is the polygon as drawn; 0 is a circle of the hole's own radius. In
- * between the boundary is pulled toward that circle, so corners round off and
- * flats bow out - the shape a perforation takes when it is small enough that a
- * sharp corner stops reading. Driven from the size field it gives a field whose
- * SMALL holes are circles and whose large ones are the full shape, with the
- * change of shape carrying the gradient rather than the change of size.
+ * Every corner gets the SAME arc radius, the way it works in CAD. That matters
+ * for more than tidiness: give each corner its own radius, sized to the edges
+ * meeting there, and a rhombus rounds off into an OVAL instead of a circle,
+ * because its sharp corners and its blunt corners reach their limits at the
+ * same moment. One radius everywhere is instead exactly a morphological
+ * opening - shrink the shape by d, grow it back by d - and an opening of any
+ * convex shape converges on its INSCRIBED CIRCLE as d reaches the inradius.
+ * So the corners round, the edges stay straight, and it still ends at a circle.
+ *
+ * Built directly rather than by offsetting: shrink the edge lines inward by d
+ * and intersect them, then walk that inner ring, emitting an arc of radius d
+ * around each of its corners and each of its edges pushed back out by d.
+ */
+function openConvex(base, d) {
+  const n = base.length;
+  const ccw = signedArea(base) > 0;
+  const nx = [];
+  const ny = [];
+  const off = []; // outward normal, and the shrunk line's offset along it
+  for (let i = 0; i < n; i++) {
+    const P = base[i];
+    const Q = base[(i + 1) % n];
+    let ex = Q[0] - P[0];
+    let ey = Q[1] - P[1];
+    const L = Math.hypot(ex, ey);
+    if (L < 1e-12) return null;
+    ex /= L;
+    ey /= L;
+    // outward is to the right of travel on a counter-clockwise ring
+    const ox = ccw ? ey : -ey;
+    const oy = ccw ? -ex : ex;
+    nx.push(ox);
+    ny.push(oy);
+    off.push(ox * P[0] + oy * P[1] - d);
+  }
+  // corners of the shrunk ring: where consecutive shrunk lines cross
+  const inner = [];
+  for (let i = 0; i < n; i++) {
+    const j = (i + n - 1) % n;
+    const det = nx[j] * ny[i] - ny[j] * nx[i];
+    if (Math.abs(det) < 1e-9) return null; // parallel edges never cross
+    inner.push([
+      (off[j] * ny[i] - ny[j] * off[i]) / det,
+      (nx[j] * off[i] - off[j] * nx[i]) / det,
+    ]);
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const V = inner[i]; // the corner between edge i-1 and edge i
+    const j = (i + n - 1) % n;
+    const a1 = Math.atan2(ny[j], nx[j]);
+    const a2 = Math.atan2(ny[i], nx[i]);
+    let sweep = a2 - a1;
+    while (sweep > Math.PI) sweep -= TAU;
+    while (sweep < -Math.PI) sweep += TAU;
+    // from k=1: the arc opens on the point the previous edge closed on, and a
+    // repeated point is a zero-length segment that every downstream consumer -
+    // the area sum, the clearance test, the DXF polyline - then has to cope with.
+    for (let k = 1; k <= ARC_SEGS; k++) {
+      const a = a1 + (sweep * k) / ARC_SEGS;
+      out.push([V[0] + d * Math.cos(a), V[1] + d * Math.sin(a)]);
+    }
+    // the straight run of edge i, pushed back out by d
+    const W = inner[(i + 1) % n];
+    out.push([W[0] + d * nx[i], W[1] + d * ny[i]]);
+  }
+  return out;
+}
+
+/** Distance from the centre to the nearest edge line - how far d can go. */
+function inradius(base, cx, cy) {
+  let m = Infinity;
+  for (let i = 0; i < base.length; i++) {
+    const P = base[i];
+    const Q = base[(i + 1) % base.length];
+    const ex = Q[0] - P[0];
+    const ey = Q[1] - P[1];
+    const L = Math.hypot(ex, ey);
+    if (L < 1e-12) continue;
+    m = Math.min(m, Math.abs((cx - P[0]) * ey - (cy - P[1]) * ex) / L);
+  }
+  return Number.isFinite(m) ? m : 0;
+}
+
+/** Largest distance from the centre out to the outline. */
+function outlineExtent(v, cx, cy) {
+  let m = 0;
+  for (const p of v) m = Math.max(m, Math.hypot(p[0] - cx, p[1] - cy));
+  return m;
+}
+
+/**
+ * ROUNDED OFF TOWARD A CIRCLE, BY FILLETING THE CORNERS.
+ *
+ * morph 1 is the polygon exactly as drawn. Below it the corners carry a fillet,
+ * one radius for all of them, and at 0 the fillets have swallowed the edges and
+ * the shape is a circle. Note what this is NOT: pulling the boundary in toward
+ * a circle leaves a KINK at every corner, because the corner is still a corner,
+ * only a shallower one. A fillet replaces it with an arc running tangent to
+ * both edges, so what a small hole loses is its points, not its flats.
+ *
+ * Filleting on its own ends at the inscribed circle, narrower than the diameter
+ * the hole is specified at, so the result is scaled back out - by nothing at
+ * morph 1, and at morph 0 by just enough that the circle is the hole's own
+ * radius. The widest point therefore runs smoothly from the shape's own out to
+ * r, and never exceeds what the unrounded shape already occupied.
+ *
+ * A shape that is not convex - the star - cannot become a circle by filleting
+ * at all, since its notches only sharpen as its points round away. It is
+ * filleted as far as its corners allow and then drawn the rest of the way in,
+ * so that it still arrives at a circle. That last part is a blend, not a fillet.
  */
 function morphVerts(base, cx, cy, r, morph) {
   const m = Math.max(0, Math.min(1, morph));
-  const out = [];
-  for (let i = 0; i < MORPH_SEGS; i++) {
-    const a = (i * TAU) / MORPH_SEGS;
-    const rp = polyRadiusAt(base, cx, cy, a) || r;
-    const rr = r + (rp - r) * m;
-    out.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+  const b = 1 - m; // how much fillet
+  const cen = base.map(([x, y]) => [x - cx, y - cy]);
+  let v = null;
+  if (b > 0 && isConvex(cen)) v = openConvex(cen, b * inradius(cen, 0, 0));
+  if (!v) {
+    // not convex: pull the boundary in toward the circle instead
+    v = [];
+    const SEG = 64;
+    for (let i = 0; i < SEG; i++) {
+      const a = (i * TAU) / SEG;
+      const rp = polyRadiusAt(cen, 0, 0, a) || r;
+      const rr = r + (rp - r) * m;
+      v.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
   }
-  return out;
+  // At the full fillet the inner ring has collapsed to a point and every
+  // straight run has gone to nothing. The outline is right, but it carries
+  // repeated points; drop them so what leaves here is a clean ring.
+  v = v.filter((q, i) => {
+    const w = v[(i + 1) % v.length];
+    return Math.hypot(q[0] - w[0], q[1] - w[1]) > 1e-9;
+  });
+  const ext = outlineExtent(v, 0, 0);
+  if (ext <= 1e-9) return v.map(([x, y]) => [cx + x, cy + y]);
+  const want = r + (outlineExtent(cen, 0, 0) - r) * m;
+  const s = want / ext;
+  return v.map(([x, y]) => [cx + x * s, cy + y * s]);
 }
 
 export function shapeVerts(type, cx, cy, r, opts = {}) {

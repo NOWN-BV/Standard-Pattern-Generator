@@ -1034,6 +1034,48 @@ console.log('all smoke checks passed');
       assert.ok(rr > last, `${shape}: rounding must be monotonic (${m})`);
       last = rr;
     }
+    // IT MUST BE A FILLET, NOT A PULL TOWARD THE CIRCLE.
+    //
+    // Both round a shape off, and only one of them is what was asked for. Pull
+    // the boundary in and every corner stays a corner - a shallower one, still
+    // a point. Fillet it and the corner becomes an arc. The two are told apart
+    // by the sharpest turn anywhere on the outline: a fillet leaves nothing
+    // sharper than one segment of its own arc, a pull leaves the corner.
+    for (const m of [0.75, 0.5, 0.25]) {
+      const v = shapeVerts(shape, 0, 0, 10, { morph: m });
+      let sharp = 0;
+      let longest = 0;
+      const seg = [];
+      for (let i = 0; i < v.length; i++) {
+        const a = v[i];
+        const b = v[(i + 1) % v.length];
+        const c = v[(i + 2) % v.length];
+        const len = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        assert.ok(len > 1e-9, `${shape}: repeated point`);
+        longest = Math.max(longest, len);
+        seg.push(len);
+        let t = Math.atan2(c[1] - b[1], c[0] - b[0]) - Math.atan2(b[1] - a[1], b[0] - a[0]);
+        while (t > Math.PI) t -= Math.PI * 2;
+        while (t < -Math.PI) t += Math.PI * 2;
+        t = Math.abs(t);
+        sharp = Math.max(sharp, t);
+      }
+      if (shape === 'star') continue; // not convex; see morphVerts
+      assert.ok(
+        sharp < 0.35,
+        `${shape}: morph ${m} still turns ${((sharp * 180) / Math.PI).toFixed(0)} degrees - that is a corner, not a fillet`
+      );
+      // AND THE FLATS ARE STILL FLAT. A fillet takes the corners and leaves the
+      // edges, so the outline is a few long straight runs among many short arc
+      // segments; a pull toward the circle makes every segment much the same
+      // length. Measured as the longest segment against the median, that is 5.9
+      // or more here against about 1 for a pull. (At morph 0 there is correctly
+      // no flat left at all - the arcs have met.)
+      seg.sort((x, y) => x - y);
+      const ratio = longest / seg[seg.length >> 1];
+      assert.ok(ratio > 4, `${shape}: morph ${m} left no straight edge (${ratio.toFixed(1)})`);
+    }
+
     // untouched at morph 1 - same vertex list as before the feature
     assert.deepEqual(
       shapeVerts(shape, 0, 0, 10, { morph: 1 }),
@@ -1060,5 +1102,50 @@ console.log('all smoke checks passed');
     'a fully rounded hole must report a circle area'
   );
 
-  console.log('small holes round off to circles, large ones keep the shape');
+  console.log('small holes fillet off to circles, large ones keep the shape and its flats');
+
+  // -- AND THE FILLET RIDES THE SIZE LADDER ---------------------------------
+  //
+  // It is cut from the finished radius, not from a field of its own, so the
+  // size controls drive it: levels step it into the same few values, contrast
+  // spreads it the same way. What that buys is the property this whole product
+  // rests on - two holes of the same diameter are the same part, whatever
+  // pattern or panel they sit in, so panels still meet along their edges.
+  const ladder = (over) => {
+    const m = new Map();
+    for (const h of buildField({ ...B, minDia: 12.5, shapeMorph: 100, ...over }).holes) {
+      const d = (h.r * 2).toFixed(2);
+      const f = (h.morph ?? 1).toFixed(3);
+      assert.ok(!m.has(d) || m.get(d) === f, `${d}mm came out with two different fillets`);
+      m.set(d, f);
+    }
+    return [...m.entries()].sort((a, b) => +a[0] - +b[0]);
+  };
+  for (const n of [2, 3, 4, 6]) {
+    const L = ladder({ sizeLevels: n });
+    assert.equal(L.length, n, `${n} size levels must give ${n} diameters`);
+    L.forEach(([, f], i) => {
+      assert.ok(
+        Math.abs(+f - i / (n - 1)) < 1e-3, // f is rounded to 3 places above
+        `level ${i} of ${n}: fillet ${f} is off the ladder`
+      );
+    });
+  }
+  // the same diameter rounds by the same amount whatever produced it
+  const ref = new Map(ladder({ sizeLevels: 4 }));
+  for (const over of [
+    { sizeLevels: 4, modulation: 'noise', noiseScale: 180, seed: 7 },
+    { sizeLevels: 4, lattice: 'stagger' },
+    { sizeLevels: 4, shape: 'square' },
+    { sizeLevels: 4, gamma: 2.5 },
+  ]) {
+    for (const [d, f] of ladder(over)) {
+      assert.equal(ref.get(d), f, `${d}mm rounds differently under ${JSON.stringify(over)}`);
+    }
+  }
+  // both ends land exactly: the stated small size is a circle, the large one is not
+  assert.equal(ref.get('12.50'), '0.000', 'the stated small size must be a full circle');
+  assert.equal(ref.get('35.00'), '1.000', 'the stated large size must keep the shape');
+  console.log('the fillet rides the size ladder - one diameter, one part');
+
 }

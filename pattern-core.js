@@ -3494,8 +3494,25 @@ export function buildField(params) {
         : clamp(c.t, 0, 1);
       if (dq) c.ratio = lerp(q0, q1, t);
       c.curve = dk ? lerp(k0, k1, t) : k0;
-      // Fully rounded at the small end, the shape as drawn at the large one.
-      if (dm > 0) c.morph = 1 - dm * (1 - t);
+      // THE FILLET RIDES THE SIZE LADDER, IT DOES NOT GET A FIELD OF ITS OWN.
+      //
+      // Taken from where the hole's FINISHED radius sits between min and max,
+      // which is the same number the size itself was cut from. So everything
+      // that shapes the ladder shapes the fillet with it: levels step the
+      // fillet into the same few values, contrast spreads it the same way,
+      // gamma paces it, and a fade carries it down together with the size.
+      //
+      // The part that matters on this product is what falls out of it - two
+      // holes of the SAME DIAMETER get the SAME FILLET, wherever they are and
+      // whichever panel they are on. These panels are made to meet one another
+      // along their edges, so a 12.5 hole has to be one part across the whole
+      // family; keyed off a field instead, two 12.5 holes could round by
+      // different amounts and quietly become two parts.
+      if (dm > 0) {
+        const span = maxR - minR;
+        const u = span > 1e-9 ? clamp((c.r - minR) / span, 0, 1) : clamp(t, 0, 1);
+        c.morph = 1 - dm * (1 - u);
+      }
       if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
     }
   }
