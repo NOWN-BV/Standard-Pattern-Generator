@@ -1295,7 +1295,7 @@
     "presetId": "",
     "designName": "Noise-Gradient 1235",
     "savedAt": "2026-08-24T13:22:41.586Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Starlight-A": {
     "cols": 4,
@@ -1353,7 +1353,7 @@
     "presetId": "",
     "designName": "Starlight-A",
     "savedAt": "2026-08-24T13:39:52.388Z",
-    "tileEdgeMm": 90,
+    "tileEdgeMm": 0,
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
@@ -1415,7 +1415,7 @@
     "presetId": "",
     "designName": "Starlight-B",
     "savedAt": "2026-08-24T13:41:45.399Z",
-    "tileEdgeMm": 90,
+    "tileEdgeMm": 0,
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
@@ -1477,7 +1477,7 @@
     "presetId": "",
     "designName": "Starlight-C",
     "savedAt": "2026-08-24T13:42:40.818Z",
-    "tileEdgeMm": 90,
+    "tileEdgeMm": 0,
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
@@ -1596,7 +1596,7 @@
     "presetId": "",
     "designName": "Rain",
     "savedAt": "2026-08-25T08:25:48.405Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Rain B": {
     "cols": 4,
@@ -1654,7 +1654,7 @@
     "presetId": "",
     "designName": "Rain B",
     "savedAt": "2026-08-25T08:26:21.706Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Cross": {
     "cols": 11,
@@ -4024,7 +4024,7 @@
     "zoom": 70,
     "presetId": "",
     "savedAt": "2026-08-21T10:22:26.942Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Ref-Cumula 4": {
     "cols": 8,
@@ -4073,7 +4073,7 @@
     "zoom": 55,
     "presetId": "",
     "savedAt": "2026-08-21T10:27:35.677Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Ref-Cumula 5": {
     "cols": 8,
@@ -4122,7 +4122,7 @@
     "zoom": 55,
     "presetId": "",
     "savedAt": "2026-08-21T10:27:54.341Z",
-    "tileEdgeMm": 90
+    "tileEdgeMm": 0
   },
   "Sashiko vertical": {
     "cols": 4,
