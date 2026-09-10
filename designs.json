@@ -1357,7 +1357,7 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57,
+    "cullEdge": 65,
     "noiseRandom": 60
   },
   "Starlight-B": {
@@ -1420,7 +1420,7 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57,
+    "cullEdge": 65,
     "noiseRandom": 60
   },
   "Starlight-C": {
@@ -1483,7 +1483,7 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57,
+    "cullEdge": 65,
     "noiseRandom": 60
   },
   "Starfield bloom": {
