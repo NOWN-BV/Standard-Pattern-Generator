@@ -2369,20 +2369,31 @@ function modulate(x, y, p, f) {
       const w = per.w / (2 * pairs);
       const legs = Math.max(1, Math.round(per.h / Math.max(1, p.weaveL ?? 300)));
       const L = per.h / legs;
+      // Columns of weaveW; odd ones lean the other way so the two lean
+      // against each other and interlock.
       const col = Math.floor(x / w);
       const odd = (((col % 2) + 2) % 2) === 1;
       const lx = x - col * w;
-      // THE LEG TURNS. Every leg down the column leans the other way, which is
-      // what makes a ribbon zigzag rather than run straight - a straight
-      // diagonal per column gives chevrons, which is a different pattern.
+      // ONE UNIT IS TWO LEGS - down one way, back the other - and the size
+      // runs large at the two TIPS and small at the BEND between them. That
+      // waist is what separates one stroke from the next; fold per leg and the
+      // bend comes out large as well, welding the chain into one ribbon.
       const leg = Math.floor(y / L);
       const dy = y - leg * L;
       const back = (((leg % 2) + 2) % 2) === 1;
-      const dir = back === odd ? 1 : -1;
-      // Along the cell: one unit down the leg, one across the column. Folded,
-      // so a leg is large where it starts and ends and small in the middle.
-      const u = (dy / L + (dir * lx) / w) / 2 + (odd ? 0.25 : 0);
-      const f = u - Math.floor(u);
+      // DISTANCE ALONG THE PATH, AND IT HAS TO SURVIVE THE BEND.
+      //
+      // On the way down the leg leans one way and on the way back the other,
+      // so the x term reverses - and a term that reverses at the bend tears
+      // the isolines in half there. Reflecting x on the return leg instead
+      // makes the distance keep counting up through the turn, which is what a
+      // path length does.
+      const lxm = odd ? w - lx : lx;
+      const xr = back ? w - lxm : lxm;
+      const legLen = w + L;
+      // Half a unit apart, so neighbouring columns break joint and interlock.
+      const along = (leg * legLen + dy + xr) / (2 * legLen) + (odd ? 0.5 : 0);
+      const f = along - Math.floor(along);
       return Math.abs(2 * f - 1);
     }
     // Two wave families crossing each other. One family alone gives diagonal
