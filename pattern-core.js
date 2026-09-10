@@ -165,6 +165,7 @@ export const MODULATIONS = [
   'linear',
   'ramp',
   'zigzag',
+  'herringbone',
   'radial',
   'wave',
   'lattice',
@@ -449,6 +450,11 @@ export const DEFAULTS = {
   peakFall: 4, // dots from the largest hole down to the smallest
   zigHeight: 600, // how tall one rise-and-fall of the band is, in mm
   zigAmp: 150, // how far the band wanders sideways, in mm
+  // HERRINGBONE. The width of one column of the weave and the length of one
+  // leg within it, both in mm and both snapped so the weave repeats on the
+  // driver period. A leg twice as long as its column is the classic interlock.
+  weaveW: 150,
+  weaveL: 300,
   kitCols: 4, // with driverScope 'kit': how many panels the field repeats over
   kitRows: 2,
   taper: 0, // strength; 0 turns the whole layer off
@@ -2337,6 +2343,47 @@ function modulate(x, y, p, f) {
       // bands turn back and stop progressing at all.
       const proj = x * Math.cos(a) + y * Math.sin(a) + (p.zigAmp ?? 150) * tri;
       return waveform(proj / Math.max(1, p.wavelength), p.waveShape);
+    }
+    // A WEAVE OF ZIGZAG RIBBONS, LARGE AT THE ENDS OF EVERY LEG.
+    //
+    // Not a wave at all, and that is the point. Every other driver here varies
+    // ACROSS its bands: the size changes as you cross from one band to the
+    // next, and along a band nothing happens. This one varies ALONG the leg -
+    // big where a leg begins and ends, small at its middle - which is what
+    // makes a run of them read as separate pieces laid end to end rather than
+    // as a stripe.
+    //
+    // The field is columns of width weaveW. Odd columns run their legs the
+    // other way, so neighbouring columns lean against each other and interlock,
+    // and they are offset half a leg so the courses break joint. Inside a
+    // column the coordinate is measured along the leg and folded, which is the
+    // large-small-large profile.
+    //
+    // Both sizes are snapped to whole counts of the driver period, so the weave
+    // still tiles. The column pair is the unit horizontally - a mirror is only
+    // a repeat every SECOND column - so the period holds a whole number of
+    // pairs, not of columns.
+    case 'herringbone': {
+      const per = driverPeriod(p);
+      const pairs = Math.max(1, Math.round(per.w / (2 * Math.max(1, p.weaveW ?? 150))));
+      const w = per.w / (2 * pairs);
+      const legs = Math.max(1, Math.round(per.h / Math.max(1, p.weaveL ?? 300)));
+      const L = per.h / legs;
+      const col = Math.floor(x / w);
+      const odd = (((col % 2) + 2) % 2) === 1;
+      const lx = x - col * w;
+      // THE LEG TURNS. Every leg down the column leans the other way, which is
+      // what makes a ribbon zigzag rather than run straight - a straight
+      // diagonal per column gives chevrons, which is a different pattern.
+      const leg = Math.floor(y / L);
+      const dy = y - leg * L;
+      const back = (((leg % 2) + 2) % 2) === 1;
+      const dir = back === odd ? 1 : -1;
+      // Along the cell: one unit down the leg, one across the column. Folded,
+      // so a leg is large where it starts and ends and small in the middle.
+      const u = (dy / L + (dir * lx) / w) / 2 + (odd ? 0.25 : 0);
+      const f = u - Math.floor(u);
+      return Math.abs(2 * f - 1);
     }
     // Two wave families crossing each other. One family alone gives diagonal
     // stripes; crossing a second at 90 degrees to it turns the stripes into a

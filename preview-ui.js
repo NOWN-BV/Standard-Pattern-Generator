@@ -568,6 +568,26 @@ const SPEC = [
     when: (s) => (USES[s.modulation] || []).includes('gamma'),
   },
   {
+    key: 'weaveW',
+    kind: 'range',
+    label: 'weave column',
+    min: 50,
+    max: 400,
+    step: 10,
+    unit: 'mm',
+    when: (s) => s.modulation === 'herringbone',
+  },
+  {
+    key: 'weaveL',
+    kind: 'range',
+    label: 'weave leg',
+    min: 100,
+    max: 800,
+    step: 20,
+    unit: 'mm',
+    when: (s) => s.modulation === 'herringbone',
+  },
+  {
     key: 'zigHeight',
     kind: 'range',
     label: 'zigzag leg',
@@ -1743,6 +1763,10 @@ const TIPS = {
     'With two levels, how much of the field falls on the small side.',
   gamma:
     'Bends the ramp. 1 is a straight fade; below 1 pushes the change toward the start, above 1 toward the end.',
+  weaveW:
+    'The width of one column of the weave. Neighbouring columns run their legs the opposite way, so they lean against each other and interlock; a leg twice the column width is the classic herringbone. Snapped so the period holds a whole number of column PAIRS - a mirror only repeats every second column.',
+  weaveL:
+    'The length of one leg of the weave. The hole size runs large at both ends of a leg and small at its middle, which is what makes a run of them read as separate pieces laid end to end rather than as one continuous stripe.',
   zigHeight:
     'How far the band runs before it has risen and fallen once.',
   zigAmp:
