@@ -1357,7 +1357,8 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57
+    "cullEdge": 57,
+    "noiseRandom": 60
   },
   "Starlight-B": {
     "cols": 4,
@@ -1419,7 +1420,8 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57
+    "cullEdge": 57,
+    "noiseRandom": 60
   },
   "Starlight-C": {
     "cols": 4,
@@ -1481,7 +1483,8 @@
     "shapeMorph": 100,
     "shapeMorphMax": 10,
     "circleSnapMm": 0.2,
-    "cullEdge": 57
+    "cullEdge": 57,
+    "noiseRandom": 60
   },
   "Starfield bloom": {
     "cols": 4,

@@ -607,6 +607,16 @@ const SPEC = [
     when: (s) => (USES[s.modulation] || []).includes('noiseDetail'),
   },
   {
+    key: 'noiseRandom',
+    kind: 'range',
+    label: 'scatter the sizes',
+    min: 0,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (st) => st.modulation === 'noise',
+  },
+  {
     key: 'noiseRough',
     kind: 'range',
     label: 'noise roughness',
@@ -1741,6 +1751,8 @@ const TIPS = {
     'Distance over which the wave or noise repeats. Below about twice the pitch the wave is finer than the holes sampling it, so it stops reading as a wave and starts beating against the lattice as a moire - useful on purpose, surprising by accident.',
   noiseDetail:
     'How many octaves of noise are stacked. 1 is soft featureless blobs; each extra octave adds finer structure at half the scale. An octave finer than twice the pitch has nothing to land on and just speckles, so past 2 or 3 the gain depends on how fine the lattice is.',
+  noiseRandom:
+    'How much of the size field is white noise drawn per hole, rather than the smooth cloud. The cloud cannot be made much finer - its blob size is floored at two pitches, so neighbouring holes always sample nearby points and always come out similar, and that similarity is what reads as cloud. Roughness and detail barely touch it. This does: at 100 the size of a hole tells you nothing about its neighbours, and in between the cloud survives as a slow drift underneath a scatter.',
   noiseRough:
     'How much each finer octave contributes. Low keeps the field smooth and rounded; high lets the small octaves through, giving ragged edges and small satellites. Does nothing at detail 1 - there is only one octave to weigh.',
   noiseSnap:

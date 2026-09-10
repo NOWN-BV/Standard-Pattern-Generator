@@ -225,6 +225,10 @@ export const DEFAULTS = {
   sizeSplit: 50, // with two levels, where the cut sits, as a percentage
   invert: false,
   wavelength: 900,
+  // How much of the size field is per-hole white noise rather than the smooth
+  // cloud - the same control the removal has as cullRandom. 0 is the cloud
+  // alone. See the note where it is used.
+  noiseRandom: 0,
   waveShape: 'sine', // see waveform()
   // IMAGE DRIVER. The grid is carried IN the design, not as a path to a file:
   // a recipe that depends on a file somewhere is not a recipe, and the whole
@@ -2469,7 +2473,7 @@ function modulate(x, y, p, f) {
         nx = qx * c - qy * s;
         ny = qx * s + qy * c;
       }
-      return clamp(
+      const cloud = clamp(
         cloudField(nx, ny, {
           size: Math.max(2 * p.pitch, (p.wavelength ?? 900) / 4),
           aspect: p.noiseAspect ?? 100,
@@ -2483,6 +2487,30 @@ function modulate(x, y, p, f) {
         0,
         1
       );
+      // ── AND HOW MUCH OF IT IS THROWN AWAY PER HOLE ──────────────────────
+      //
+      // The field is smooth, and it cannot be made much less so: its blob size
+      // is floored at two pitches, so neighbouring holes always sample nearby
+      // points and always come out similar sizes. That similarity IS the cloud
+      // you see, and turning roughness and octaves up barely touches it -
+      // measured, the neighbour-to-neighbour size difference moves from 0.240
+      // of the range to 0.253 across the whole of both controls.
+      //
+      // So the same lever the removal has: mix white noise, drawn per lattice
+      // point, into the field. At 100 the size of a hole says nothing about its
+      // neighbour and the cloud is gone entirely; in between the cloud survives
+      // as a drift under a scatter. Keyed on the position within the driver
+      // PERIOD, so the field still repeats where it has to and every panel of a
+      // tile is still the same panel.
+      const rnd = clamp(p.noiseRandom ?? 0, 0, 100) / 100;
+      if (rnd <= 0) return cloud;
+      const wrap = (v, m) => ((Math.round(v) % m) + m) % m;
+      const jitter = hash2(
+        wrap(nx, Math.round(per.w)),
+        wrap(ny, Math.round(per.h)),
+        (p.seed ?? 7) + 31
+      );
+      return clamp(cloud * (1 - rnd) + jitter * rnd, 0, 1);
     }
     default:
       return 1;

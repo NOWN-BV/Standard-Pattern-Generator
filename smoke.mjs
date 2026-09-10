@@ -1618,9 +1618,12 @@ console.log('all smoke checks passed');
     }
     for (const n of set)
       assert.deepEqual(edges[n], edges[set[0]], n + ' cannot butt ' + set[0]);
-    // and the sizes they are specified at are the sizes they cut
+    // And the sizes they are specified at are the sizes the FIELD cuts. Asked
+    // of the field before removal, not of the survivors: C keeps a tenth of its
+    // holes, so whether a 40mm one is among them is chance - it currently tops
+    // out at 35.6 - and that says nothing about whether the size range is right.
     for (const n of set) {
-      const st = buildField({ ...DESIGNS[n] }).stats;
+      const st = buildField({ ...DESIGNS[n], cull: 0, cullEdge: null }).stats;
       assert.ok(st.holeMinDia >= 12.4 && st.holeMinDia < 13.5, n + ': smallest is ' + st.holeMinDia);
       assert.ok(st.holeMaxDia > 39 && st.holeMaxDia <= 40.01, n + ': largest is ' + st.holeMaxDia);
     }
