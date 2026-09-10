@@ -905,6 +905,16 @@ const SPEC = [
   // leave this at 0 and drop 'min dia' so the driver shrinks holes away.
   { key: 'cull', kind: 'range', label: 'holes removed', min: 0, max: 95, step: 1, unit: '%' },
   {
+    key: 'cullEdge',
+    kind: 'range',
+    label: 'removal on the joint line',
+    min: 0,
+    max: 100,
+    step: 1,
+    unit: '%',
+    when: (st) => st.cull > 0,
+  },
+  {
     key: 'cullEven',
     kind: 'range',
     label: 'share removal along a row',
@@ -1760,6 +1770,8 @@ const TIPS = {
     'How much of the panel the change is spread over. 100% ramps edge to edge. 50% holds the start density over the first quarter, changes across the middle half, then holds the end density over the last quarter - so both halves of a transition panel still read as their neighbours.',
   cullFade:
     'Softens the edge of the void. Holes just short of being removed shrink toward nothing instead of stopping at full size, so the pattern dissolves rather than ending on a hard rim. 0 = a crisp boundary.',
+  cullEdge:
+    'The removal level used on the JOINT LINE, so two designs of different density can butt together. A sparse pattern only removes holes a dense one also removes, so its joint holes are a subset - put the two panels side by side and a hole one of them cuts and the other does not is left as half a hole in the wall. Set the same figure on every design in a set and they all cut the same holes on the line, while the density each is named for still differs everywhere inside. Only holes whose centre stands ON an edge are touched.',
   cullEven:
     'How evenly the removal is shared out along each row. At 0 one field is thresholded over the whole panel, so how many holes a row loses is chance - on a 24-hole row, several either way. That is what makes a transition panel look wrong: its trend falls about half a point of open area per row while the noise is nearly three, so rows visibly go back UP on the way down. Turning this up ranks each hole among its own row as well, and at 100 every row loses exactly its share, so the fade is as straight as the ramp behind it. The cost is the cloud - a void spanning several rows has to give holes back to hold the count of each row - so it reads more as texture and less as shape the higher it goes.',
   cullShape:
@@ -2041,16 +2053,45 @@ async function loadStore() {
   return cache;
 }
 
-async function persist() {
-  localWrite(cache);
-  if (storeMode !== 'disk') return true;
+/**
+ * WRITE ONE CHANGE ONTO THE LIBRARY AS IT IS NOW, never the tab's whole copy.
+ *
+ * This used to PUT the entire in-memory library. A tab holds the list it read
+ * when it opened, so any save from a tab left open across an edit wrote that
+ * old list back over the file - and everything added or changed since was gone.
+ * It happened: one save took designs.json from 129 designs to 121, deleting
+ * eight and reverting nine others, with no error anywhere and nothing on screen
+ * to say so.
+ *
+ * So the file is re-read first and the change applied to THAT. A stale tab can
+ * now only affect the one design it actually saved.
+ *
+ * The apply callback receives the library as it stands on disk and mutates it.
+ */
+async function persist(apply) {
+  if (storeMode !== 'disk') {
+    if (apply) apply(cache);
+    localWrite(cache);
+    return true;
+  }
   try {
+    let latest = cache;
+    if (apply) {
+      const cur = await fetch(DESIGNS_URL, { cache: 'no-store' });
+      if (!cur.ok) throw new Error('HTTP ' + cur.status);
+      latest = await cur.json();
+      apply(latest);
+    }
     const r = await fetch(DESIGNS_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cache, null, 2),
+      body: JSON.stringify(latest, null, 2),
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    // The tab now shows what is actually on disk, including anything another
+    // tab or the toolchain changed while this one was sitting open.
+    cache = latest;
+    localWrite(cache);
     return true;
   } catch (err) {
     alert(
@@ -2058,6 +2099,7 @@ async function persist() {
         (err && err.message ? err.message : 'unknown') +
         '\nUse Export to keep a copy.'
     );
+    localWrite(cache);
     return false;
   }
 }
@@ -2093,8 +2135,11 @@ function wireSaveLoad() {
     }
     if (cache[nm] && !confirm('"' + nm + '" already exists. Overwrite it?')) return;
     state.designName = nm;
-    cache[nm] = { ...state, savedAt: new Date().toISOString() };
-    await persist();
+    const design = { ...state, savedAt: new Date().toISOString() };
+    cache[nm] = design;
+    await persist((lib) => {
+      lib[nm] = design;
+    });
     refreshSavedList();
     sel.value = nm;
   });
@@ -2121,7 +2166,9 @@ function wireSaveLoad() {
     if (!nm) return;
     if (!confirm('Delete "' + nm + '"?')) return;
     delete cache[nm];
-    await persist();
+    await persist((lib) => {
+      delete lib[nm];
+    });
     refreshSavedList();
   });
 
@@ -2148,7 +2195,11 @@ function wireSaveLoad() {
         if (!(key in cache)) added++;
         cache[key] = v;
       }
-      await persist();
+      // An import is many designs at once, but still only the ones in the file.
+      const merged = { ...cache };
+      await persist((lib) => {
+        for (const [k, v] of Object.entries(merged)) lib[k] = v;
+      });
       refreshSavedList();
       alert('Imported ' + added + ' design(s).');
     } catch (err) {

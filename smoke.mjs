@@ -1585,6 +1585,47 @@ console.log('all smoke checks passed');
     assert.deepEqual(broken, [], `P4 designs whose tiles disagree on a joint: ${broken}`);
   }
   console.log('every interchangeable P4 design agrees with itself on all four joints');
+  // -- STARLIGHT A, B AND C MUST MEET EACH OTHER --------------------------
+  //
+  // Three densities of one field, so a wall can step from open to nearly
+  // solid. They cannot do it on nested joints: a sparse pattern only removes
+  // holes the dense one also removes, so its joint holes are a SUBSET, and a
+  // hole one panel cuts and its neighbour does not is left as half a hole.
+  // cullEdge pins the joint line to a level all three share. They also have to
+  // be on one cloud - they were on three different removal seeds, which no
+  // amount of edge work can reconcile.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    const set = ['Starlight-A', 'Starlight-B', 'Starlight-C'];
+    const qq = (v) => Math.round(v * 1e4) / 1e4;
+    const edges = {};
+    for (const n of set) {
+      const d = DESIGNS[n];
+      assert.ok(d, n + ' is missing');
+      for (const f of ['cullSeed', 'cullShape', 'cullScale', 'cullEdge', 'pitch', 'lattice', 'shape', 'minDia', 'maxDia', 'seed'])
+        assert.deepEqual(DESIGNS[n][f], DESIGNS[set[0]][f], n + ' differs from ' + set[0] + ' on ' + f);
+      const fl = buildField({ ...d });
+      edges[n] = ['B', 'T', 'L', 'R'].map((side) => {
+        const out = [];
+        for (const { h, lx, ly } of panelHoles(fl, fl.panels[0])) {
+          if (side === 'B' && Math.abs(ly) < 0.5) out.push(qq(lx) + ',' + qq(h.r) + ',' + h.type);
+          if (side === 'T' && Math.abs(ly - PANEL.moduleH) < 0.5) out.push(qq(lx) + ',' + qq(h.r) + ',' + h.type);
+          if (side === 'L' && Math.abs(lx) < 0.5) out.push(qq(ly) + ',' + qq(h.r) + ',' + h.type);
+          if (side === 'R' && Math.abs(lx - PANEL.moduleW) < 0.5) out.push(qq(ly) + ',' + qq(h.r) + ',' + h.type);
+        }
+        return [...new Set(out)].sort().join('|');
+      });
+    }
+    for (const n of set)
+      assert.deepEqual(edges[n], edges[set[0]], n + ' cannot butt ' + set[0]);
+    // and the sizes they are specified at are the sizes they cut
+    for (const n of set) {
+      const st = buildField({ ...DESIGNS[n] }).stats;
+      assert.ok(st.holeMinDia >= 12.4 && st.holeMinDia < 13.5, n + ': smallest is ' + st.holeMinDia);
+      assert.ok(st.holeMaxDia > 39 && st.holeMaxDia <= 40.01, n + ': largest is ' + st.holeMaxDia);
+    }
+  }
+  console.log('Starlight A, B and C butt one another on every edge');
 
 
 

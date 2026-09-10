@@ -512,6 +512,20 @@ export const DEFAULTS = {
   // every tile IS tile A; past it tileBlendMm takes over as before. The
   // interior stays as different as it ever was, which is the point of P4.
   tileEdgeMm: 0,
+  // THE REMOVAL LEVEL USED ON THE JOINT ITSELF, SO TWO DENSITIES CAN MEET.
+  //
+  // tileEdgeMm makes the four tiles of ONE design agree. This is the other
+  // half: it makes two DIFFERENT designs agree, which they otherwise cannot.
+  // A sparse design's joint holes are a subset of a dense one's, so butt them
+  // together and a hole that one panel cuts and the other does not is left as
+  // half a hole in the wall. Pinning the threshold on the joint line to a
+  // number the whole set shares makes every one of them cut the same holes
+  // there, while the density they are named for still differs everywhere else.
+  //
+  // Only holes whose centre stands ON an edge are affected - those are the ones
+  // that are physically shared. A hole a row in belongs to one panel and is
+  // free to follow its own design. null leaves every hole to its own level.
+  cullEdge: null,
   // Presentation only - carried in the recipe so a saved design reopens looking
   // the same, and used by the SVG export. Never affects geometry.
   holeColor: '#ffffff',
@@ -3379,7 +3393,14 @@ export function buildField(params) {
       const band = clamp(p.cullBand ?? 100, 1, 100) / 100;
       const ramp = cullRampsOnFade ? taperUnit(c.cx, c.cy, p, f) : c.t;
       const u = band >= 1 ? ramp : clamp((ramp - 0.5) / band + 0.5, 0, 1);
-      const base = p.cullMode === 'gradient' ? fromPct + (cullPct - fromPct) * u : cullPct;
+      let base = p.cullMode === 'gradient' ? fromPct + (cullPct - fromPct) * u : cullPct;
+      // On the joint line, the level the whole set shares - see cullEdge.
+      if (
+        p.cullEdge !== null &&
+        p.cullEdge !== undefined &&
+        Math.min(c.sx, PANEL.moduleW - c.sx, c.sy, PANEL.moduleH - c.sy) < 0.5
+      )
+        base = clamp(p.cullEdge, 0, 100) / 100;
       // The layer COMPOSES with removal rather than replacing it: a hole has to
       // survive both, so survival is (1 - base) * (1 - fade). Written as a
       // single threshold so it still thresholds the same rank field, which is
