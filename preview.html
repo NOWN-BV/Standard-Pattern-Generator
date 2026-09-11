@@ -742,6 +742,14 @@ const DEFAULTS = {
   // of a chevron on its way to the point; 'triangle' keeps them straight. See
   // crossFamilies.
   crossShape: 'sine',
+  // 'diagonal' puts the two families on the diagonals - diamonds, and triangles
+  // once a sawtooth cuts them. 'square' is the same pair turned 45 degrees, one
+  // family per axis, so the cell stands square to the panel.
+  crossTurn: 'diagonal',
+  // With a sawtooth: how much of each cell the ramp is spent over, as a
+  // percentage. The remainder is flat at the small end. 100 is the plain
+  // sawtooth; 50 is half flat field, half gradient.
+  crossDuty: 100,
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -1813,8 +1821,23 @@ function crossFamilies(x, y, p) {
   const kx = Math.max(0, Math.round(p.crossKx ?? 2));
   const ky = Math.max(0, Math.round(p.crossKy ?? 4));
   const per = driverPeriod(p);
-  const ua = (kx * x) / per.w + (ky * y) / per.h;
-  const ub = (kx * x) / per.w - (ky * y) / per.h;
+  const gx = (kx * x) / per.w;
+  const gy = (ky * y) / per.h;
+  // THE PAIR TURNED A QUARTER OF ITS OWN CELL.
+  //
+  // Summing and differencing the two counts puts the families on the DIAGONALS,
+  // which is what makes diamonds and, cut by a sawtooth, triangles. Taking them
+  // straight instead is the same pair rotated 45 degrees: one family runs along
+  // x and the other along y, so the cell they bound is a rectangle standing
+  // square to the panel.
+  //
+  // It is square only when the two counts give the same spacing - 600 / kx
+  // against 1200 / ky - so ky = 2 kx. At 3 by 6 that is a 200mm square.
+  //
+  // Both tile: the period is per.w / kx across and per.h / ky down either way.
+  const square = (p.crossTurn ?? 'diagonal') === 'square';
+  const ua = square ? gx : gx + gy;
+  const ub = square ? gy : gx - gy;
   // SINE BENDS THE EDGES; TRIANGLE LEAVES THEM STRAIGHT.
   //
   // The two families cross and the larger of them wins, so the seam between
@@ -1825,11 +1848,15 @@ function crossFamilies(x, y, p) {
   // wave makes the same contour a straight line, so the chevron has flat sides
   // and reaches its point without rounding off.
   const shape = p.crossShape ?? 'sine';
-  return { fa: waveform(ua, shape), fb: waveform(ub, shape) };
+  const duty = Math.max(5, Math.min(100, p.crossDuty ?? 100)) / 100;
+  return { fa: waveform(ua, shape, duty), fb: waveform(ub, shape, duty) };
 }
 
 /** Diagonal angle the wave counts work out to, in degrees - a readout. */
 function crossAngleDeg(p) {
+  // Turned square the families run along the axes, so there is no diagonal to
+  // report - the cell edge is vertical.
+  if ((p.crossTurn ?? 'diagonal') === 'square') return 90;
   const kx = Math.max(0, Math.round(p.crossKx ?? 2));
   const ky = Math.max(0, Math.round(p.crossKy ?? 4));
   const per = driverPeriod(p);
@@ -2153,15 +2180,28 @@ function gcdApprox(a, b) {
   return x;
 }
 
-function waveform(u, shape) {
+function waveform(u, shape, duty = 1) {
   const p = ((u % 1) + 1) % 1;
   switch (shape) {
     case 'triangle': {
       const q = (p + 0.25) % 1;
       return 1 - Math.abs(2 * q - 1);
     }
-    case 'sawtooth':
-      return (p + 0.25) % 1;
+    case 'sawtooth': {
+      // HOW MUCH OF THE CELL THE RAMP IS ALLOWED.
+      //
+      // A plain sawtooth climbs across the whole cycle, so the only place it is
+      // at its smallest is the instant after the drop - the gradient fills the
+      // cell and its peak sits on a corner. Give the ramp less than the cycle
+      // and the rest is FLAT at the small end: the cell is then half plain
+      // field and half gradient, and the gradient starts part-way in and runs
+      // out to one side instead of spanning corner to corner.
+      //
+      // 1 is the plain sawtooth, so nothing already drawn moves.
+      const q = (p + 0.25) % 1;
+      const d = Math.min(1, Math.max(0.05, duty));
+      return q < 1 - d ? 0 : (q - (1 - d)) / d;
+    }
     case 'square':
       return p < 0.5 ? 1 : 0;
     case 'sine':
@@ -6414,6 +6454,15 @@ const SPEC = [
     when: (st) => st.modulation === 'blocks',
   },
   {
+    key: 'crossTurn',
+    kind: 'select',
+    label: 'cross axes',
+    options: () => ['diagonal', 'square'],
+    labels: (v) => (v === 'square' ? 'square to panel' : 'diagonal'),
+    when: (st) =>
+      st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks',
+  },
+  {
     key: 'crossShape',
     kind: 'select',
     label: 'chevron edge',
@@ -6421,6 +6470,18 @@ const SPEC = [
     labels: (v) => (v === 'triangle' ? 'straight' : 'bowed'),
     when: (st) =>
       st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks',
+  },
+  {
+    key: 'crossDuty',
+    kind: 'range',
+    label: 'saw ramp',
+    min: 10,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (st) =>
+      st.crossShape === 'sawtooth' &&
+      (st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks'),
   },
   {
     key: 'crossSharp',
@@ -7668,8 +7729,12 @@ const TIPS = {
     'How many cycles fit up the 1200mm panel height. Together with cycles-across this sets both the diamond size AND the diagonal angle: equal spacing in each direction gives 45 degrees, and unequal counts lean the lattice.',
   crossPhase:
     'Slides the blocks within the panel without changing their size. At 0 they are centred on the panel edges and corners, so every block is cut in half by the boundary. At 180 whole blocks sit inside - 2 across and 4 down at counts 2 and 4 - and the small holes land on the boundary lines where panels meet.',
+  crossTurn:
+    'Which way the two crossing families run. Diagonal sums and differences the two counts, so the families lie on the diagonals and the cell they bound is a diamond - cut by a sawtooth, a triangle. Square is the same pair turned 45 degrees: one family along x, the other along y, and the cell stands square to the panel. It is only an actual SQUARE when the two counts give the same spacing, 600 / across against 1200 / down, so down has to be twice across - 3 and 6 gives a 200mm square.',
   crossShape:
     'What the two crossing families are made of. The seam where they meet is a crease either way, so the point of a chevron is sharp in both - what changes is the edge leading to it. A sine bows that edge, so the pattern arrives at its point through a pair of curves and the tip reads blunt. A triangle makes the edge a straight line, and the chevron comes to a clean point.',
+  crossDuty:
+    'How much of each cell the sawtooth ramp is spent over. At 100 it climbs across the whole cell, so the gradient fills it and the peak lands on a corner. Lower it and the rest of the cell is flat at the small end: at 50 the cell is half plain field and half gradient, with the gradient starting at the middle and running out to one side. It is the sawtooth only - a sine or a triangle has no drop to move.',
   crossSharp:
     'How the two crossing wave families combine. At 100% the stronger of the two wins, giving crisp continuous bands with bright intersections - the argyle look. Lower blends them, so the bands soften and only their crossings stay bright.',
   modulation:

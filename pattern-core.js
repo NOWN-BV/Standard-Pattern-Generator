@@ -595,6 +595,14 @@ export const DEFAULTS = {
   // of a chevron on its way to the point; 'triangle' keeps them straight. See
   // crossFamilies.
   crossShape: 'sine',
+  // 'diagonal' puts the two families on the diagonals - diamonds, and triangles
+  // once a sawtooth cuts them. 'square' is the same pair turned 45 degrees, one
+  // family per axis, so the cell stands square to the panel.
+  crossTurn: 'diagonal',
+  // With a sawtooth: how much of each cell the ramp is spent over, as a
+  // percentage. The remainder is flat at the small end. 100 is the plain
+  // sawtooth; 50 is half flat field, half gradient.
+  crossDuty: 100,
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -1666,8 +1674,23 @@ function crossFamilies(x, y, p) {
   const kx = Math.max(0, Math.round(p.crossKx ?? 2));
   const ky = Math.max(0, Math.round(p.crossKy ?? 4));
   const per = driverPeriod(p);
-  const ua = (kx * x) / per.w + (ky * y) / per.h;
-  const ub = (kx * x) / per.w - (ky * y) / per.h;
+  const gx = (kx * x) / per.w;
+  const gy = (ky * y) / per.h;
+  // THE PAIR TURNED A QUARTER OF ITS OWN CELL.
+  //
+  // Summing and differencing the two counts puts the families on the DIAGONALS,
+  // which is what makes diamonds and, cut by a sawtooth, triangles. Taking them
+  // straight instead is the same pair rotated 45 degrees: one family runs along
+  // x and the other along y, so the cell they bound is a rectangle standing
+  // square to the panel.
+  //
+  // It is square only when the two counts give the same spacing - 600 / kx
+  // against 1200 / ky - so ky = 2 kx. At 3 by 6 that is a 200mm square.
+  //
+  // Both tile: the period is per.w / kx across and per.h / ky down either way.
+  const square = (p.crossTurn ?? 'diagonal') === 'square';
+  const ua = square ? gx : gx + gy;
+  const ub = square ? gy : gx - gy;
   // SINE BENDS THE EDGES; TRIANGLE LEAVES THEM STRAIGHT.
   //
   // The two families cross and the larger of them wins, so the seam between
@@ -1678,11 +1701,15 @@ function crossFamilies(x, y, p) {
   // wave makes the same contour a straight line, so the chevron has flat sides
   // and reaches its point without rounding off.
   const shape = p.crossShape ?? 'sine';
-  return { fa: waveform(ua, shape), fb: waveform(ub, shape) };
+  const duty = Math.max(5, Math.min(100, p.crossDuty ?? 100)) / 100;
+  return { fa: waveform(ua, shape, duty), fb: waveform(ub, shape, duty) };
 }
 
 /** Diagonal angle the wave counts work out to, in degrees - a readout. */
 export function crossAngleDeg(p) {
+  // Turned square the families run along the axes, so there is no diagonal to
+  // report - the cell edge is vertical.
+  if ((p.crossTurn ?? 'diagonal') === 'square') return 90;
   const kx = Math.max(0, Math.round(p.crossKx ?? 2));
   const ky = Math.max(0, Math.round(p.crossKy ?? 4));
   const per = driverPeriod(p);
@@ -2006,15 +2033,28 @@ function gcdApprox(a, b) {
   return x;
 }
 
-function waveform(u, shape) {
+function waveform(u, shape, duty = 1) {
   const p = ((u % 1) + 1) % 1;
   switch (shape) {
     case 'triangle': {
       const q = (p + 0.25) % 1;
       return 1 - Math.abs(2 * q - 1);
     }
-    case 'sawtooth':
-      return (p + 0.25) % 1;
+    case 'sawtooth': {
+      // HOW MUCH OF THE CELL THE RAMP IS ALLOWED.
+      //
+      // A plain sawtooth climbs across the whole cycle, so the only place it is
+      // at its smallest is the instant after the drop - the gradient fills the
+      // cell and its peak sits on a corner. Give the ramp less than the cycle
+      // and the rest is FLAT at the small end: the cell is then half plain
+      // field and half gradient, and the gradient starts part-way in and runs
+      // out to one side instead of spanning corner to corner.
+      //
+      // 1 is the plain sawtooth, so nothing already drawn moves.
+      const q = (p + 0.25) % 1;
+      const d = Math.min(1, Math.max(0.05, duty));
+      return q < 1 - d ? 0 : (q - (1 - d)) / d;
+    }
     case 'square':
       return p < 0.5 ? 1 : 0;
     case 'sine':
