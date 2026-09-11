@@ -12516,9 +12516,10 @@
     "zoom": 90,
     "presetId": "",
     "designName": "Lattice wedge",
-    "savedAt": "2026-09-11T10:58:55.467Z",
+    "savedAt": "2026-09-11T11:10:14.000Z",
     "crossDuty": 100,
-    "crossTurn": "square"
+    "crossTurn": "square",
+    "wedgeFrom": "centre"
   },
   "Lattice wedge wide": {
     "cols": 4,
@@ -12662,9 +12663,10 @@
     "zoom": 90,
     "presetId": "",
     "designName": "Lattice wedge wide",
-    "savedAt": "2026-09-11T10:58:55.523Z",
+    "savedAt": "2026-09-11T11:10:14.030Z",
     "crossDuty": 100,
-    "crossTurn": "square"
+    "crossTurn": "square",
+    "wedgeFrom": "centre"
   },
   "Lattice wedge cut": {
     "cols": 4,
@@ -12810,7 +12812,8 @@
     "zoom": 45,
     "presetId": "",
     "designName": "Lattice wedge cut",
-    "savedAt": "2026-09-11T11:06:14.877Z"
+    "savedAt": "2026-09-11T11:10:14.049Z",
+    "wedgeFrom": "centre"
   },
   "Lattice wedge cut half": {
     "cols": 4,
@@ -12956,6 +12959,7 @@
     "zoom": 45,
     "presetId": "",
     "designName": "Lattice wedge cut half",
-    "savedAt": "2026-09-11T11:06:14.941Z"
+    "savedAt": "2026-09-11T11:10:14.098Z",
+    "wedgeFrom": "centre"
   }
 }

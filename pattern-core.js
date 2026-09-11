@@ -604,6 +604,9 @@ export const DEFAULTS = {
   // percentage. The remainder is flat at the small end. 100 is the plain
   // sawtooth; 50 is half flat field, half gradient.
   crossDuty: 100,
+  // For the 'wedge' driver: whether its ramp is measured from the seam the two
+  // families share, or out of the middle of the cell. See the driver.
+  wedgeFrom: 'seam',
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -2579,7 +2582,24 @@ function modulate(x, y, p, f) {
       // little of the difference back, which softens the straight edge into a
       // shoulder instead of a step.
       const d = fa - fb;
-      return Math.max(0, d) * sharp + ((d + 1) / 2) * (1 - sharp);
+      // WHERE THE RAMP IS MEASURED FROM.
+      //
+      // 'seam' measures it from the line itself, so the climb runs the width of
+      // the open half and its top lands in the far CORNER. That is the natural
+      // reading of the subtraction, and it is not what a fan out of a point
+      // looks like.
+      //
+      // 'centre' measures it from the middle of the cell instead. With sawtooth
+      // families fa and fb ARE the position inside the cell, so the middle is
+      // (0.5, 0.5) and the distance to it taken as the larger of the two axes
+      // gives square rings about that point - smallest at the centre, full at
+      // the cell's border. Masked to the same half, the gradient then opens out
+      // of the centre rather than climbing towards a corner.
+      const base =
+        (p.wedgeFrom ?? 'seam') === 'centre'
+          ? (d > 0 ? Math.min(1, 2 * Math.max(Math.abs(fa - 0.5), Math.abs(fb - 0.5))) : 0)
+          : Math.max(0, d);
+      return base * sharp + ((d + 1) / 2) * (1 - sharp);
     }
 
     // Same two families, but multiplied rather than maxed: a hole is only large

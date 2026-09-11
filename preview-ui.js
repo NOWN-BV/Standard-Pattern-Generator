@@ -553,6 +553,14 @@ const SPEC = [
       st.modulation === 'blocks',
   },
   {
+    key: 'wedgeFrom',
+    kind: 'select',
+    label: 'wedge ramp from',
+    options: () => ['seam', 'centre'],
+    labels: (v) => (v === 'centre' ? 'the centre' : 'the seam'),
+    when: (st) => st.modulation === 'wedge',
+  },
+  {
     key: 'crossDuty',
     kind: 'range',
     label: 'saw ramp',
@@ -1817,6 +1825,8 @@ const TIPS = {
     'Which way the two crossing families run. Diagonal sums and differences the two counts, so the families lie on the diagonals and the cell they bound is a diamond - cut by a sawtooth, a triangle. Square is the same pair turned 45 degrees: one family along x, the other along y, and the cell stands square to the panel. It is only an actual SQUARE when the two counts give the same spacing, 600 / across against 1200 / down, so down has to be twice across - 3 and 6 gives a 200mm square.',
   crossShape:
     'What the two crossing families are made of. The seam where they meet is a crease either way, so the point of a chevron is sharp in both - what changes is the edge leading to it. A sine bows that edge, so the pattern arrives at its point through a pair of curves and the tip reads blunt. A triangle makes the edge a straight line, and the chevron comes to a clean point.',
+  wedgeFrom:
+    'Where the wedge measures its ramp from. From the seam it climbs away from the line the two families share, so the ramp spans the open half and peaks in the far corner. From the centre it climbs out of the middle of the cell instead, in square rings, so the gradient opens out of a point and reaches full size at the cell border. The flat half is the same either way.',
   crossDuty:
     'How much of each cell the sawtooth ramp is spent over. At 100 it climbs across the whole cell, so the gradient fills it and the peak lands on a corner. Lower it and the rest of the cell is flat at the small end: at 50 the cell is half plain field and half gradient, with the gradient starting at the middle and running out to one side. It is the sawtooth only - a sine or a triangle has no drop to move.',
   crossSharp:
