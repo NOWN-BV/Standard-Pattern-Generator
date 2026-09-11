@@ -13814,7 +13814,7 @@
     "cullDriver": "pattern",
     "cullOrder": "blue",
     "cullSeed": 83,
-    "tileBlendMm": 0,
+    "tileBlendMm": 150,
     "tileEdgeMm": 0,
     "cullEdge": 35,
     "holeColor": "#ffffff",
@@ -13846,15 +13846,15 @@
     "cullFade": 0,
     "centerX": 0.5,
     "centerY": 0.5,
-    "seamRule": "drop",
-    "edgeInset": 2,
+    "seamRule": "allow",
+    "edgeInset": 0,
     "showGhost": true,
     "showFrames": true,
     "showSeams": true,
     "zoom": 55,
     "presetId": "",
     "designName": "Bar rain",
-    "savedAt": "2026-09-11T13:13:51.057Z"
+    "savedAt": "2026-09-11T13:18:20.207Z"
   },
   "Bar rain dense": {
     "cols": 4,

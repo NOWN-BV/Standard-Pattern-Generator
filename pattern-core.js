@@ -4116,10 +4116,27 @@ export function buildField(params) {
   //
   // Each column is walked in order. Unbroken stretches of surviving cells
   // become one slot spanning from the first cell's top to the last cell's
-  // bottom, and the cells it swallowed are marked off. A stretch longer than
-  // barMax is CUT into pieces of at most that many cells, with the cell at each
-  // break given up so the pieces are separated by a real gap rather than
-  // touching - four in a row is then not a longer bar, it is two of two.
+  // bottom, and the cells it swallowed are marked off.
+  //
+  // WHERE A LONG STRETCH IS CUT, AND WHY IT IS NOT CUT FROM ITS OWN START.
+  //
+  // The obvious rule - walk the stretch and break every barMax cells - makes a
+  // bar depend on where its stretch BEGAN, which can be most of a panel away.
+  // That is fine on one panel and fatal under P4: the four tiles cut different
+  // stretches, so the bar covering a horizontal joint came out different on
+  // each of them, and no amount of blending the field near the seam fixed it,
+  // because the thing reaching across the seam was not the field but the run.
+  //
+  // So the breaks are anchored to the LATTICE instead. Rows are numbered from
+  // the field origin and every (barMax + 1)th row is a possible break; a cell
+  // there is given up only when a stretch actually runs through it, so short
+  // stretches are left alone and the field keeps no visible rhythm of its own.
+  // A bar is then the maximal stretch inside one block of rows, which is a
+  // function of that block and nothing else - local, so two tiles that agree on
+  // the cells near a joint agree on the bars there too.
+  //
+  // It still bounds the length: a block holds barMax cells between breaks, so
+  // four in a row is not a longer bar, it is two of two.
   //
   // The width is the slot's own, so it stays inside every limit; only the
   // length comes from the run, and the run is bounded by barMax.
@@ -4134,13 +4151,39 @@ export function buildField(params) {
       byCol.get(k).push(c);
     }
     const half = py / 2;
+    // Row index on the lattice, and the block it belongs to. Both are read off
+    // the position, so they are the same for every tile.
+    const K = barMax + 1;
+    const rowOf = (c) => Math.round(c.cy / py);
+    const isBreak = (c) => ((((rowOf(c) % K) + K) % K) === 0);
+    // Give up a break row only where a stretch runs through it - its two
+    // neighbours in the column both survive. Anything shorter is untouched.
+    {
+      const rows = new Map();
+      for (const c of candidates) if (!c.culled) rows.set(Math.round(c.cx * 4) + ':' + rowOf(c), c);
+      for (const c of candidates) {
+        if (c.culled || !isBreak(c)) continue;
+        const k = Math.round(c.cx * 4);
+        const j = rowOf(c);
+        if (rows.has(k + ':' + (j - 1)) && rows.has(k + ':' + (j + 1))) c.culled = true;
+      }
+      // Re-read the columns: the break rows just given up are gone from them.
+      byCol.clear();
+      for (const c of candidates) {
+        if (c.culled) continue;
+        const k = Math.round(c.cx * 4);
+        if (!byCol.has(k)) byCol.set(k, []);
+        byCol.get(k).push(c);
+      }
+    }
     for (const list of byCol.values()) {
       list.sort((a, b) => a.cy - b.cy);
       let run = [];
       const flush = () => {
         if (!run.length) return;
-        // Break a stretch into pieces of at most barMax, dropping the cell that
-        // follows each piece so the pieces cannot touch.
+        // A stretch can no longer outrun a block, so it is cut once at most -
+        // and only if a block boundary was never reached, which the guard above
+        // makes impossible for anything longer than barMax.
         for (let i = 0; i < run.length; ) {
           const take = Math.min(barMax, run.length - i);
           const piece = run.slice(i, i + take);

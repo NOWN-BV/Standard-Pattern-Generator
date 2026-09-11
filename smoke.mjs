@@ -1657,19 +1657,30 @@ console.log('all smoke checks passed');
       if (d.tiling === 'P4' || d.tiling === 'P4R') {
         const g = buildField({ ...d, cols: 2, rows: 2 });
         const qw = (v) => Math.round(v * 1e4) / 1e4;
-        const prof = (pn, atTop) => {
+        // WHICH HOLES COUNT AS BEING ON THE JOINT.
+        //
+        // Not the ones the panel owns. A bar straddling a seam is attributed to
+        // whichever panel its CENTRE falls in, so asking each panel for its own
+        // holes reports the bar once and the neighbour not at all - which reads
+        // as a disagreement when the two in fact share it. What is on the line
+        // is every bar that crosses it anywhere across that panel's width,
+        // whoever it belongs to.
+        const prof = (pn) => {
           const out = [];
-          const jy = pn.y + (atTop ? PANEL.moduleH : 0);
+          const jy = pn.y + PANEL.moduleH;
           for (const h of g.holes) {
-            if (h.panelCol !== pn.col || h.panelRow !== pn.row) continue;
-            if (h.cy - h.r < jy + 1e-3 && h.cy + h.r > jy - 1e-3)
-              out.push(`${qw(h.cx - pn.x)},${qw((2 * h.r) / h.ratio)}`);
+            const lx = h.cx - pn.x;
+            if (lx < -1e-6 || lx > PANEL.moduleW + 1e-6) continue;
+            if (h.cy - h.r < jy - 1e-6 && h.cy + h.r > jy + 1e-6)
+              out.push(`${qw(lx)},${qw((2 * h.r) / h.ratio)}`);
           }
           return [...new Set(out)].sort().join('|');
         };
-        for (const atTop of [false, true])
-          if (!g.panels.every((pn) => prof(pn, atTop) === prof(g.panels[0], atTop)))
-            bad.push(`${name}: P4 tiles cut different bars through the ${atTop ? 'top' : 'bottom'} joint`);
+        // Only the INTERIOR seam. The wall's outer edges are cut off by the
+        // field and cannot be expected to match one.
+        const inner = g.panels.filter((pn) => pn.row === 0);
+        if (!inner.every((pn) => prof(pn) === prof(inner[0])))
+          bad.push(`${name}: P4 tiles cut different bars through the horizontal joint`);
       }
       const f = buildField({ ...d, cols: 2, rows: 1 });
       const xs = [...new Set(f.holes.map((h) => Math.round(h.cx * 1e4) / 1e4))].sort((p, q) => p - q);
