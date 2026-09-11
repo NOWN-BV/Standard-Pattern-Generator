@@ -2612,7 +2612,27 @@ function modulate(x, y, p, f) {
       // triangles of a cell read as opposites of each other rather than as
       // pattern against ground, and the boundary is a hard line because the
       // field steps across it instead of passing through zero.
-      const base = (p.wedgeSide ?? 'flat') === 'flip' ? (d > 0 ? g : 1 - g) : d > 0 ? g : 0;
+      //
+      // 'flip only' keeps that turned-over half and drops the original: the
+      // side that was climbing goes flat and the side that was inverted is all
+      // that is left. Measured from the centre, the survivor is LARGE in the
+      // middle of the cell and falls away to the border, so what is left is a
+      // compact triangle rather than a wash that fills its half - and because
+      // the dropped side is flat at exactly zero, a pattern-ranked removal
+      // takes it out whole, the same trick the cut designs use.
+      const mode = p.wedgeSide ?? 'flat';
+      const base =
+        mode === 'flip'
+          ? d > 0
+            ? g
+            : 1 - g
+          : mode === 'flip only'
+            ? d > 0
+              ? 0
+              : 1 - g
+            : d > 0
+              ? g
+              : 0;
       return base * sharp + ((d + 1) / 2) * (1 - sharp);
     }
 

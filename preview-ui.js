@@ -556,8 +556,13 @@ const SPEC = [
     key: 'wedgeSide',
     kind: 'select',
     label: 'far side of seam',
-    options: () => ['flat', 'flip'],
-    labels: (v) => (v === 'flip' ? 'gradient inverted' : 'flat, no gradient'),
+    options: () => ['flat', 'flip', 'flip only'],
+    labels: (v) =>
+      v === 'flip'
+        ? 'gradient inverted'
+        : v === 'flip only'
+          ? 'inverted half only'
+          : 'flat, no gradient',
     when: (st) => st.modulation === 'wedge',
   },
   {
@@ -1834,7 +1839,7 @@ const TIPS = {
   crossShape:
     'What the two crossing families are made of. The seam where they meet is a crease either way, so the point of a chevron is sharp in both - what changes is the edge leading to it. A sine bows that edge, so the pattern arrives at its point through a pair of curves and the tip reads blunt. A triangle makes the edge a straight line, and the chevron comes to a clean point.',
   wedgeSide:
-    'What the far side of the seam does. Flat holds it at the small end, so that half reads as plain ground and a removal ranked on the pattern takes it out whole. Flip gives it the same gradient turned over instead: both halves are fully modulated, the seam becomes the place where large meets small, and the two triangles of a cell read as opposites of one another. The boundary is hard either way - the field steps across the line rather than passing through it.',
+    'What the far side of the seam does. Flat holds it at the small end, so that half reads as plain ground and a removal ranked on the pattern takes it out whole. Flip gives it the same gradient turned over instead: both halves are fully modulated, the seam becomes the place where large meets small, and the two triangles of a cell read as opposites of one another. Inverted half only keeps that turned-over side and drops the original - measured from the centre the survivor is large in the middle and falls away to the border, so what is left is a compact triangle rather than a wash filling its half, and the dropped side sits at exactly zero so a pattern-ranked removal can take it out whole. The boundary is hard in every case: the field steps across the line rather than passing through it.',
   wedgeFrom:
     'Where the wedge measures its ramp from. From the seam it climbs away from the line the two families share, so the ramp spans the open half and peaks in the far corner. From the centre it climbs out of the middle of the cell instead, in square rings, so the gradient opens out of a point and reaches full size at the cell border. The flat half is the same either way.',
   crossDuty:
