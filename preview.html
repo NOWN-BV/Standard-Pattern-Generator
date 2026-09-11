@@ -2618,7 +2618,21 @@ function modulate(x, y, p, f) {
           const r = Math.round((cj - (odd ? 4 : 0)) / 8) + dr;
           const di = ci - 6 * c;
           const dj = cj - 8 * r - (odd ? 4 : 0);
-          if (M.has((odd ? -di : di) + ',' + dj)) return Math.min(1, Math.abs(dj) / 6);
+          if (!M.has((odd ? -di : di) + ',' + dj)) continue;
+          // THE GRADIENT RUNS THROUGH THE CELL, NOT IN STEPS OF IT.
+          //
+          // The cell decides which UNIT a hole belongs to. It should not also
+          // decide the hole's size: returning |dj| / 6 off the cell's integer
+          // row makes every hole in a cell exactly the same size, so a cell is
+          // a flat block and the ramp only changes where one cell ends and the
+          // next begins. That is the stepping between neighbouring blocks.
+          //
+          // Once the unit is known, the distance from its middle is a real
+          // number - v is y in cell-rows already - so the ramp is continuous
+          // and a cell carries part of it rather than one value of it. The
+          // tips still land on 1: the tip cell straddles |dj| = 6, so half of
+          // it runs past and the clamp holds it there.
+          return Math.min(1, Math.abs(v - (8 * r + (odd ? 4 : 0))) / 6);
         }
       }
       return 0.5;
