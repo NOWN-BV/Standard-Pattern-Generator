@@ -2584,11 +2584,31 @@ function modulate(x, y, p, f) {
       const uh = per.h / rows; // one unit down the column
       const a = uw / 6;
       const b = uh / 8;
-      let ci = Math.round(x / a);
-      const cj = Math.round(y / b);
-      // Cells live on the odd parity; relabel rather than reject, so a lattice
-      // that happens to sit on the other one still reads.
-      if ((((ci + cj) % 2) + 2) % 2 === 0) ci += 1;
+      // WHICH CELL A HOLE IS IN, DECIDED BY THE DIAMOND AND NOT BY ROUNDING.
+      //
+      // The cells are diamonds on the odd parity of an a-by-b grid, and those
+      // diamonds tile the plane exactly - each has area 2ab and there is one
+      // per 2ab of lattice. So every point belongs to exactly one, and finding
+      // it is a question of which centre is nearest in the DIAMOND's own
+      // metric, |dx| / a + |dy| / b.
+      //
+      // Rounding x and y separately and then nudging the parity is not that.
+      // It rounds into a RECTANGLE and then, whenever the parity came out
+      // wrong, shifts right - always right, never left and never vertically -
+      // so a band down the left of every cell was being handed to its
+      // neighbour. That is why cell populations came out 1, 2, 3 and 4 holes
+      // when the geometry says they should all be the same.
+      //
+      // Rotating into s = u + v, t = u - v turns the L1 ball into an L-infinity
+      // one: the diamond becomes a unit square, and the nearest centre is just
+      // the nearest odd integer on each axis independently. No ties, no nudge.
+      const u = x / a;
+      const v = y / b;
+      const nearestOdd = (z) => 2 * Math.round((z - 1) / 2) + 1;
+      const sn = nearestOdd(u + v);
+      const tn = nearestOdd(u - v);
+      const ci = (sn + tn) / 2;
+      const cj = (sn - tn) / 2;
       const M = weaveMotif();
       // Which unit owns this cell. The tiling is exact, so exactly one will.
       for (let dc = -1; dc <= 1; dc++) {
