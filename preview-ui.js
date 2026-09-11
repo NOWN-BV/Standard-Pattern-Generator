@@ -52,6 +52,7 @@ const USES = {
   lattice: ['crossKx', 'crossKy', 'crossSharp', 'gamma'],
   blocks: ['crossKx', 'crossKy', 'crossSharp', 'gamma'],
   chevron: ['crossKx', 'crossKy', 'crossSharp', 'gamma'],
+  wedge: ['crossKx', 'crossKy', 'crossSharp', 'gamma'],
   bands: ['modAngle', 'steps'],
   noise: ['wavelength', 'seed', 'noiseDetail', 'noiseRough', 'noiseAspect', 'noiseShear', 'gamma'],
   // The weave shapes its ramp with all three of gamma, weave gradient and size
@@ -534,7 +535,10 @@ const SPEC = [
     options: () => ['diagonal', 'square'],
     labels: (v) => (v === 'square' ? 'square to panel' : 'diagonal'),
     when: (st) =>
-      st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks',
+      st.modulation === 'lattice' ||
+      st.modulation === 'chevron' ||
+      st.modulation === 'wedge' ||
+      st.modulation === 'blocks',
   },
   {
     key: 'crossShape',
@@ -543,7 +547,10 @@ const SPEC = [
     options: () => ['sine', 'triangle'],
     labels: (v) => (v === 'triangle' ? 'straight' : 'bowed'),
     when: (st) =>
-      st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks',
+      st.modulation === 'lattice' ||
+      st.modulation === 'chevron' ||
+      st.modulation === 'wedge' ||
+      st.modulation === 'blocks',
   },
   {
     key: 'crossDuty',
@@ -555,7 +562,10 @@ const SPEC = [
     unit: '%',
     when: (st) =>
       st.crossShape === 'sawtooth' &&
-      (st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks'),
+      (st.modulation === 'lattice' ||
+      st.modulation === 'chevron' ||
+      st.modulation === 'wedge' ||
+      st.modulation === 'blocks'),
   },
   {
     key: 'crossSharp',

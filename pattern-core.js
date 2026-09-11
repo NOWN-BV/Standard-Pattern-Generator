@@ -170,6 +170,7 @@ export const MODULATIONS = [
   'wave',
   'lattice',
   'chevron',
+  'wedge',
   'blocks',
   'bands',
   'noise',
@@ -1902,6 +1903,7 @@ function taperFieldAt(x0, y0, p, f) {
       );
     case 'lattice':
     case 'chevron':
+    case 'wedge':
     case 'blocks':
       return clamp(taperCross(x, y, p, nw, nh), 0, 1);
     // DIRECTIONLESS, in the two senses that mean different things in metal.
@@ -2555,6 +2557,29 @@ function modulate(x, y, p, f) {
       // continuous and cross. Averaging instead dims the bands where they do
       // not coincide, giving a softer quilted field.
       return lerp((fa + fb) / 2, Math.max(fa, fb), sharp);
+    }
+
+    // ONE SIDE OF THE SEAM, AND NOTHING ON THE OTHER.
+    //
+    // The two families meet where fa equals fb, and that locus is a straight
+    // line - the diagonal of the cell they bound. Every other way of putting
+    // them together is symmetric about it: max() and min() fold at it, the
+    // product and the mean are unchanged by swapping the two. Subtracting is
+    // not. It is POSITIVE on one side of the line and negative on the other, so
+    // clamping at zero leaves one side flat at the small end and lets the other
+    // climb away from the line - a wedge opening off a straight edge, which is
+    // the thing a ramp along an axis cannot draw.
+    //
+    // The gradient therefore starts at the line, not at a corner, and spreads
+    // one way only. Which way is the sign, and invert turns it over.
+    case 'wedge': {
+      const { fa, fb } = crossFamilies(x, y, p);
+      const sharp = clamp(p.crossSharp ?? 100, 0, 100) / 100;
+      // Below full sharpness the far side is not held at zero but allowed a
+      // little of the difference back, which softens the straight edge into a
+      // shoulder instead of a step.
+      const d = fa - fb;
+      return Math.max(0, d) * sharp + ((d + 1) / 2) * (1 - sharp);
     }
 
     // Same two families, but multiplied rather than maxed: a hole is only large
