@@ -458,6 +458,9 @@ export const DEFAULTS = {
   // How far the bands lean, as a percentage - the drawing has 519.4mm across
   // per 820.2mm down, which is 63.
   weaveLean: 63,
+  // How much of a unit the size ramp is spent over, as a percentage of the
+  // full half-unit. Below 100 it saturates early and the chain reads harder.
+  weaveGrad: 100,
   kitCols: 4, // with driverScope 'kit': how many panels the field repeats over
   kitRows: 2,
   taper: 0, // strength; 0 turns the whole layer off
@@ -2485,7 +2488,16 @@ function modulate(x, y, p, f) {
           // and a cell carries part of it rather than one value of it. The
           // tips still land on 1: the tip cell straddles |dj| = 6, so half of
           // it runs past and the clamp holds it there.
-          return Math.min(1, Math.abs(v - (8 * r + (odd ? 4 : 0))) / 6);
+          // HOW HARD THE CHAIN READS.
+          //
+          // The ramp runs from the middle of a unit to its tip over six cell
+          // rows. Spending it over FEWER than six saturates early: the tips sit
+          // at full size for a stretch instead of touching it at a point, and
+          // the waist sits at the small size the same way. The gradient is
+          // still there in between - it is steeper, so the bright chain and the
+          // dark ground separate harder. 100 is the plain linear ramp.
+          const span = 6 * Math.max(0.05, (p.weaveGrad ?? 100) / 100);
+          return Math.min(1, Math.abs(v - (8 * r + (odd ? 4 : 0))) / span);
         }
       }
       return 0.5;

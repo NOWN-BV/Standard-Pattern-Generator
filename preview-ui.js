@@ -597,6 +597,16 @@ const SPEC = [
     when: (s) => s.modulation === 'herringbone',
   },
   {
+    key: 'weaveGrad',
+    kind: 'range',
+    label: 'weave gradient',
+    min: 20,
+    max: 100,
+    step: 5,
+    unit: '%',
+    when: (st) => st.modulation === 'herringbone',
+  },
+  {
     key: 'zigHeight',
     kind: 'range',
     label: 'zigzag leg',
@@ -1778,6 +1788,8 @@ const TIPS = {
     'The width of one column of the weave. Neighbouring columns run their legs the opposite way, so they lean against each other and interlock; a leg twice the column width is the classic herringbone. Snapped so the period holds a whole number of column PAIRS - a mirror only repeats every second column.',
   weaveL:
     'The length of one leg of the weave. The hole size runs large at both ends of a leg and small at its middle, which is what makes a run of them read as separate pieces laid end to end rather than as one continuous stripe.',
+  weaveGrad:
+    'How much of a unit the size ramp is spent over. At 100 it runs the whole way from the waist to the tip, so the largest holes are reached only at the very tip and the pattern reads soft. Lower it and the ramp saturates early: the tips hold full size for a stretch and the waists hold the small size, with a steeper gradient between them, so the chain separates hard from the ground. It opens the panel up as it goes - more holes sit at the large end - so expect the open area to climb.',
   zigHeight:
     'How far the band runs before it has risen and fallen once.',
   zigAmp:
