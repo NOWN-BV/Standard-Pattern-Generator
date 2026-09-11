@@ -434,7 +434,10 @@ const SPEC = [
     kind: 'range',
     label: 'bar length',
     min: 0,
-    max: 8,
+    // The block a bar lives in is (bar length + 1) rows deep, and under P4 the
+    // tile blend has to cover one of those - so a long bar costs blend band.
+    // See barMax's note in the engine.
+    max: 15,
     step: 1,
     unit: ' cells',
   },

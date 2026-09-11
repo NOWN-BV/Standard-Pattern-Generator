@@ -4338,7 +4338,22 @@ function buildField(params) {
     // same places.
     const nCols = Math.max(1, Math.round(PANEL.moduleW / colStep));
     const phaseOf = (c) => ((((((colOf(c) % nCols) + nCols) % nCols) * step) % K) + K) % K;
-    const isBreak = (c) => ((((rowOf(c) - phaseOf(c)) % K) + K) % K) === 0;
+    // AND THE ROWS HAVE TO REPEAT WITH THE PANEL TOO.
+    //
+    // The columns were made panel-periodic and the rows were not, which is a
+    // half-fix that looks like a whole one. Rows are counted from the field
+    // origin, so unless the block size happens to divide the rows in a panel -
+    // 9 into 34, it does not - panel row 0 and panel row 1 break at different
+    // heights, and the two present different bars on the seam they share. That
+    // is a mismatch under P1 as much as under P4; it was missed because the
+    // check being run compared two panels of the same row.
+    //
+    // Counting the row within the panel fixes it. The block that meets the
+    // panel edge is then a short one rather than a full K, which only shortens
+    // some bars - it never lengthens one past the limit.
+    const rowsPerPanel = Math.max(1, Math.round(PANEL.moduleH / py));
+    const rowIn = (c) => (((rowOf(c) % rowsPerPanel) + rowsPerPanel) % rowsPerPanel);
+    const isBreak = (c) => ((((rowIn(c) - phaseOf(c)) % K) + K) % K) === 0;
     // Give up a break row only where a stretch runs through it - its two
     // neighbours in the column both survive. Anything shorter is untouched.
     {
@@ -6638,7 +6653,10 @@ const SPEC = [
     kind: 'range',
     label: 'bar length',
     min: 0,
-    max: 8,
+    // The block a bar lives in is (bar length + 1) rows deep, and under P4 the
+    // tile blend has to cover one of those - so a long bar costs blend band.
+    // See barMax's note in the engine.
+    max: 15,
     step: 1,
     unit: ' cells',
   },

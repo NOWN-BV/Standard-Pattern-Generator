@@ -1654,8 +1654,19 @@ console.log('all smoke checks passed');
       // can pass that check while cutting completely different bars through the
       // seam. What has to match is the set of bars that CROSS: their column and
       // their width.
-      if (d.tiling === 'P4' || d.tiling === 'P4R') {
-        const g = buildField({ ...d, cols: 2, rows: 2 });
+      {
+        // FOUR WIDE BY THREE HIGH, NOT TWO BY TWO.
+        //
+        // 2x2 compares two variants at one seam and calls it P4. It passed a
+        // configuration whose four tiles cut visibly different bars through the
+        // joint, and it passed a P1 design whose own panel rows broke at
+        // different heights. 4x3 puts all four variants on the wall and gives
+        // two interior seams, so a panel's top is compared with every other
+        // panel's top and with the bottom of the panel above it.
+        //
+        // Run for P1 as well: a bar that straddles a seam has to match whatever
+        // is above it whether the four tiles differ or not.
+        const g = buildField({ ...d, cols: 4, rows: 3 });
         const qw = (v) => Math.round(v * 1e4) / 1e4;
         // WHICH HOLES COUNT AS BEING ON THE JOINT.
         //
@@ -1665,9 +1676,9 @@ console.log('all smoke checks passed');
         // as a disagreement when the two in fact share it. What is on the line
         // is every bar that crosses it anywhere across that panel's width,
         // whoever it belongs to.
-        const prof = (pn) => {
+        const prof = (pn, atTop) => {
           const out = [];
-          const jy = pn.y + PANEL.moduleH;
+          const jy = pn.y + (atTop ? PANEL.moduleH : 0);
           for (const h of g.holes) {
             const lx = h.cx - pn.x;
             if (lx < -1e-6 || lx > PANEL.moduleW + 1e-6) continue;
@@ -1676,11 +1687,20 @@ console.log('all smoke checks passed');
           }
           return [...new Set(out)].sort().join('|');
         };
-        // Only the INTERIOR seam. The wall's outer edges are cut off by the
+        // Only INTERIOR seams. The wall's outer edges are cut off by the
         // field and cannot be expected to match one.
-        const inner = g.panels.filter((pn) => pn.row === 0);
-        if (!inner.every((pn) => prof(pn) === prof(inner[0])))
-          bad.push(`${name}: P4 tiles cut different bars through the horizontal joint`);
+        const maxRow = Math.max(...g.panels.map((pn) => pn.row));
+        const tops = g.panels.filter((pn) => pn.row < maxRow);
+        const bots = g.panels.filter((pn) => pn.row > 0);
+        if (!tops.every((pn) => prof(pn, true) === prof(tops[0], true)))
+          bad.push(`${name}: panels present different bars on their top joint`);
+        if (!bots.every((pn) => prof(pn, false) === prof(bots[0], false)))
+          bad.push(`${name}: panels present different bars on their bottom joint`);
+        for (const pn of tops) {
+          const above = g.panels.find((q) => q.col === pn.col && q.row === pn.row + 1);
+          if (above && prof(pn, true) !== prof(above, false))
+            bad.push(`${name}: panel ${pn.col},${pn.row} does not meet the one above it`);
+        }
       }
       const f = buildField({ ...d, cols: 2, rows: 1 });
       const xs = [...new Set(f.holes.map((h) => Math.round(h.cx * 1e4) / 1e4))].sort((p, q) => p - q);
