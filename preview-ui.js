@@ -429,6 +429,24 @@ const SPEC = [
     unit: 'mm',
     when: (s) => s.shape !== 'circle' && (s.shapeAngleMode === 'radial' || s.shapeAngleMode === 'tangential'),
   },
+  {
+    key: 'barMax',
+    kind: 'range',
+    label: 'bar length',
+    min: 0,
+    max: 8,
+    step: 1,
+    unit: ' cells',
+  },
+  {
+    key: 'colPhase',
+    kind: 'range',
+    label: 'column phase',
+    min: 0,
+    max: 50,
+    step: 5,
+    unit: '%',
+  },
   { key: 'minDia', kind: 'range', label: 'min dia', min: 1.5, max: 75, step: 0.5, unit: 'mm' },
   { key: 'maxDia', kind: 'range', label: 'max dia', min: 9, max: 75, step: 0.5, unit: 'mm' },
   { group: 'Modulation' },
@@ -1714,6 +1732,10 @@ const TIPS = {
     'Target centre-to-centre hole spacing. Capped at 75 mm for this product line. It SNAPS to the nearest spacing a panel can actually hold (600 / an even number), so a hole centre always lands exactly on a panel joint and the pattern runs across the seam. The readout at the bottom shows the snapped value.',
 
   shape: 'Hole outline. Circle is the standard; the others are for exploration.',
+  barMax:
+    'Joins unbroken vertical runs of cells into a single slot, up to this many cells long. 0 leaves every cell its own hole. A bar longer than about 75mm cannot be one hole - that is the product cap on a hole, and the clearance rule keeps two slots in the same column apart anyway - so a long bar has to be made by joining cells, and this is the step that does it. A stretch longer than the limit is cut into pieces of at most that many cells, with the cell at each break given up, so the pieces are separated by a real gap rather than reading as one longer bar.',
+  colPhase:
+    'Shifts every column of the lattice sideways by this fraction of the column spacing. At 0 there is a column on x = 0, which is the panel side joint - right for round holes, since a centre on the joint is what carries the pattern across it, and wrong for a vertical slot, which the seam then splits down its length. At 50 the joint falls midway between two columns. Continuity is not lost either way: the field stays periodic in the column spacing and the panel still holds a whole number of columns.',
   minDia:
     'Smallest hole the pattern uses - where the driver is at its low end. Below about 12 mm a hole reads as a pinhole rather than a perforation.',
   maxDia:

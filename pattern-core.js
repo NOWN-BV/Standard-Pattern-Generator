@@ -277,6 +277,13 @@ export const DEFAULTS = {
   // corner: 45 top-left, 135 top-right, 225 bottom-right, 315 bottom-left.
   rampCorner: false,
   ratioMax: 0,
+  // Shifts every lattice column by this fraction of the column spacing, as a
+  // percentage. 50 puts the panel's side joint midway between two columns
+  // instead of through one. See nodeX.
+  colPhase: 0,
+  // Joins unbroken vertical runs of cells into ONE slot, up to this many cells
+  // long; 0 leaves every cell its own hole. See the bars step.
+  barMax: 0,
   // HOW THE SIDES BETWEEN THE TWO TIPS BEND.
   //
   // 1 is the straight rhombus. Below 1 the sides pinch inward and it becomes a
@@ -2848,8 +2855,23 @@ export function buildField(params) {
   // One helper so the loop, the edge steps and the angle all read the lattice
   // the same way - a transposed stagger is easy to apply in one place and
   // forget in another.
+  // COLUMNS OFF THE VERTICAL JOINT.
+  //
+  // Nodes sit at i * px, so there is always a column ON x = 0 - which is the
+  // panel's side joint. For round holes that is the point: a hole centre on the
+  // joint is what carries the pattern across it. For a VERTICAL SLOT it is the
+  // opposite of what is wanted, because the slot is then split down its length
+  // by the seam and each panel carries half a bar.
+  //
+  // Shifting every column by a fraction of px fixes that without giving up
+  // continuity: the field is still periodic in px and 600 still holds a whole
+  // number of columns, so the pattern repeats across the joint exactly as
+  // before. It just has no column sitting on the line. 50 puts the joint
+  // halfway between two columns, which is the most clearance available.
+  const phase = ((((p.colPhase ?? 0) / 100) % 1) + 1) % 1;
   const nodeX = (i, j, g = 0) =>
-    (vertical ? i * px : (i + (Math.abs(j % 2) === 1 ? offset : 0)) * px) + asaOff(g)[0];
+    (vertical ? (i + phase) * px : (i + phase + (Math.abs(j % 2) === 1 ? offset : 0)) * px) +
+    asaOff(g)[0];
   const nodeY = (i, j, g = 0) =>
     (vertical ? (j + (Math.abs(i % 2) === 1 ? offset : 0)) * py : j * py) + asaOff(g)[1];
   // spectRAL clamps: floor at the laser minimum, ceiling at min(75, pitch - 3).
@@ -4080,6 +4102,85 @@ export function buildField(params) {
         }
       }
       if (dq || dk || dm > 0) c.area = holeArea(c.type, c.r, c.ratio, c.curve, c.morph);
+    }
+  }
+
+  // BARS: A RUN OF CELLS CUT AS ONE SLOT.
+  //
+  // A bar hundreds of millimetres long cannot be a hole. maxDia caps a hole at
+  // 75mm - rightly, that is a product limit on the round ones - and the
+  // clearance rule stops two slots in the same column from ever meeting, since
+  // it insists on a web between neighbours. So a long bar has to be made by
+  // JOINING cells rather than by growing one, and that is a step of its own,
+  // taken after everything else has decided which cells are there.
+  //
+  // Each column is walked in order. Unbroken stretches of surviving cells
+  // become one slot spanning from the first cell's top to the last cell's
+  // bottom, and the cells it swallowed are marked off. A stretch longer than
+  // barMax is CUT into pieces of at most that many cells, with the cell at each
+  // break given up so the pieces are separated by a real gap rather than
+  // touching - four in a row is then not a longer bar, it is two of two.
+  //
+  // The width is the slot's own, so it stays inside every limit; only the
+  // length comes from the run, and the run is bounded by barMax.
+  const barMax = Math.max(0, Math.round(p.barMax ?? 0));
+  if (barMax > 0) {
+    const { py } = latticeSpacing(p);
+    const byCol = new Map();
+    for (const c of candidates) {
+      if (c.culled) continue;
+      const k = Math.round(c.cx * 4);
+      if (!byCol.has(k)) byCol.set(k, []);
+      byCol.get(k).push(c);
+    }
+    const half = py / 2;
+    for (const list of byCol.values()) {
+      list.sort((a, b) => a.cy - b.cy);
+      let run = [];
+      const flush = () => {
+        if (!run.length) return;
+        // Break a stretch into pieces of at most barMax, dropping the cell that
+        // follows each piece so the pieces cannot touch.
+        for (let i = 0; i < run.length; ) {
+          const take = Math.min(barMax, run.length - i);
+          const piece = run.slice(i, i + take);
+          const head = piece[0];
+          const tail = piece[piece.length - 1];
+          // One slot over the whole piece: centre between the outer edges,
+          // half-length to reach them. A single cell keeps the size it was
+          // given, so a bar of one is still a modulated hole.
+          if (piece.length > 1) {
+            const top = piece[0].cy - half;
+            const bottom = tail.cy + half;
+            head.cy = (top + bottom) / 2;
+            const grown = (bottom - top) / 2;
+            // KEEP THE WIDTH. A slot's width is r / ratio, so growing r alone
+            // would fatten the bar as it lengthens - a three-cell bar came out
+            // three times as wide as a one-cell one, which is not a bar, it is
+            // a block. The ratio grows with r so the width is the width the
+            // cell was already going to have.
+            head.ratio = Math.max(1, (head.ratio ?? 1) * (grown / head.r));
+            head.r = grown;
+            head.area = holeArea(head.type, head.r, head.ratio, head.curve, head.morph);
+            for (let k = 1; k < piece.length; k++) piece[k].culled = true;
+          }
+          i += take;
+          // The separator, when there is more of the stretch to come.
+          if (i < run.length) {
+            run[i].culled = true;
+            i += 1;
+          }
+        }
+        run = [];
+      };
+      for (const c of list) {
+        if (!run.length || Math.abs(c.cy - run[run.length - 1].cy - py) < 1e-6) run.push(c);
+        else {
+          flush();
+          run.push(c);
+        }
+      }
+      flush();
     }
   }
 
