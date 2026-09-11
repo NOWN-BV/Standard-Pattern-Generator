@@ -13772,7 +13772,7 @@
     "noiseShear": 0,
     "steps": 5,
     "jitter": 0,
-    "tiling": "P1",
+    "tiling": "P4",
     "driverScope": "unit",
     "seed": 7,
     "cull": 34,
@@ -13846,15 +13846,15 @@
     "cullFade": 0,
     "centerX": 0.5,
     "centerY": 0.5,
-    "seamRule": "allow",
-    "edgeInset": 0,
+    "seamRule": "drop",
+    "edgeInset": 2,
     "showGhost": true,
     "showFrames": true,
     "showSeams": true,
     "zoom": 55,
     "presetId": "",
     "designName": "Bar rain",
-    "savedAt": "2026-09-11T13:10:57.467Z"
+    "savedAt": "2026-09-11T13:13:51.057Z"
   },
   "Bar rain dense": {
     "cols": 4,

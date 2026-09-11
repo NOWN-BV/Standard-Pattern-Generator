@@ -1647,9 +1647,29 @@ console.log('all smoke checks passed');
     const bad = [];
     for (const [name, d] of Object.entries(DESIGNS)) {
       if (!(d.barMax > 0)) continue;
+      // UNDER P4 THE FOUR TILES HAVE TO AGREE ON WHAT CROSSES THE JOINT.
+      //
+      // The general P4 check above compares hole CENTRES on the joint line, and
+      // a bar does not put its centre there - it straddles it. So four tiles
+      // can pass that check while cutting completely different bars through the
+      // seam. What has to match is the set of bars that CROSS: their column and
+      // their width.
       if (d.tiling === 'P4' || d.tiling === 'P4R') {
-        bad.push(`${name}: tiling ${d.tiling}, four tiles cut different bars at the joint`);
-        continue;
+        const g = buildField({ ...d, cols: 2, rows: 2 });
+        const qw = (v) => Math.round(v * 1e4) / 1e4;
+        const prof = (pn, atTop) => {
+          const out = [];
+          const jy = pn.y + (atTop ? PANEL.moduleH : 0);
+          for (const h of g.holes) {
+            if (h.panelCol !== pn.col || h.panelRow !== pn.row) continue;
+            if (h.cy - h.r < jy + 1e-3 && h.cy + h.r > jy - 1e-3)
+              out.push(`${qw(h.cx - pn.x)},${qw((2 * h.r) / h.ratio)}`);
+          }
+          return [...new Set(out)].sort().join('|');
+        };
+        for (const atTop of [false, true])
+          if (!g.panels.every((pn) => prof(pn, atTop) === prof(g.panels[0], atTop)))
+            bad.push(`${name}: P4 tiles cut different bars through the ${atTop ? 'top' : 'bottom'} joint`);
       }
       const f = buildField({ ...d, cols: 2, rows: 1 });
       const xs = [...new Set(f.holes.map((h) => Math.round(h.cx * 1e4) / 1e4))].sort((p, q) => p - q);
