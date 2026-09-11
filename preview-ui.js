@@ -439,13 +439,18 @@ const SPEC = [
     unit: ' cells',
   },
   {
+    // TWO STATES, NOT A PERCENTAGE.
+    //
+    // Only two values mean anything here: a column ON the joint, or the joint
+    // exactly midway between two. Everything in between puts the seam nearer
+    // one column than the other, which reads as a pair of panels with a wide
+    // side and a narrow one - and as a slider it drifted back to 15 and 25 on
+    // successive saves, each time silently. A select cannot land off-centre.
     key: 'colPhase',
-    kind: 'range',
-    label: 'column phase',
-    min: 0,
-    max: 50,
-    step: 5,
-    unit: '%',
+    kind: 'select',
+    label: 'side joint',
+    options: () => [0, 50],
+    labels: (v) => (Number(v) >= 25 ? 'centred between columns' : 'on a column'),
   },
   { key: 'minDia', kind: 'range', label: 'min dia', min: 1.5, max: 75, step: 0.5, unit: 'mm' },
   { key: 'maxDia', kind: 'range', label: 'max dia', min: 9, max: 75, step: 0.5, unit: 'mm' },
@@ -1735,7 +1740,7 @@ const TIPS = {
   barMax:
     'Joins unbroken vertical runs of cells into a single slot, up to this many cells long. 0 leaves every cell its own hole. A bar longer than about 75mm cannot be one hole - that is the product cap on a hole, and the clearance rule keeps two slots in the same column apart anyway - so a long bar has to be made by joining cells, and this is the step that does it. A stretch longer than the limit is cut into pieces of at most that many cells, with the cell at each break given up, so the pieces are separated by a real gap rather than reading as one longer bar.',
   colPhase:
-    'Shifts every column of the lattice sideways by this fraction of the column spacing. At 0 there is a column on x = 0, which is the panel side joint - right for round holes, since a centre on the joint is what carries the pattern across it, and wrong for a vertical slot, which the seam then splits down its length. At 50 the joint falls midway between two columns. Continuity is not lost either way: the field stays periodic in the column spacing and the panel still holds a whole number of columns.',
+    'Where the panel side joint falls relative to the columns. On a column is the default and the right answer for round holes: a hole centre on the joint is what carries the pattern across it. It is the wrong answer for a vertical slot, which the seam then splits down its length so each panel carries half a bar. Centred between columns puts the joint exactly midway between the last column of one panel and the first of the next. Continuity is not lost either way - the field stays periodic in the column spacing and the panel still holds a whole number of columns.',
   minDia:
     'Smallest hole the pattern uses - where the driver is at its low end. Below about 12 mm a hole reads as a pinhole rather than a perforation.',
   maxDia:

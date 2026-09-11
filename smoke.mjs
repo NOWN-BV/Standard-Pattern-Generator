@@ -1630,6 +1630,37 @@ console.log('all smoke checks passed');
   }
   console.log('Starlight A, B and C butt one another on every edge');
 
-
-
+  // -- A BAR DESIGN MUST NOT BE SPLIT BY ITS OWN SIDE JOINT ----------------
+  //
+  // A vertical bar wants the seam BETWEEN two columns, not through one, and it
+  // wants one panel repeated rather than four different tiles. Both of those
+  // have now been lost twice by saving from the screen - the phase came back as
+  // 25 and then 15, the tiling as P4 - and neither shows up as an error on the
+  // panel being looked at. It shows up as a pair of panels with a wide side and
+  // a narrow one, and as four tiles that cut different bars at the joint.
+  //
+  // So it is checked rather than remembered. Anything with barMax set has to
+  // put the midpoint of the two columns either side of the joint ON the joint,
+  // and must not claim to be four interchangeable tiles.
+  {
+    const DESIGNS = JSON.parse(readFileSync(new URL('./designs.json', import.meta.url), 'utf8'));
+    const bad = [];
+    for (const [name, d] of Object.entries(DESIGNS)) {
+      if (!(d.barMax > 0)) continue;
+      if (d.tiling === 'P4' || d.tiling === 'P4R') {
+        bad.push(`${name}: tiling ${d.tiling}, four tiles cut different bars at the joint`);
+        continue;
+      }
+      const f = buildField({ ...d, cols: 2, rows: 1 });
+      const xs = [...new Set(f.holes.map((h) => Math.round(h.cx * 1e4) / 1e4))].sort((p, q) => p - q);
+      const J = PANEL.moduleW;
+      const left = Math.max(...xs.filter((x) => x < J));
+      const right = Math.min(...xs.filter((x) => x > J));
+      const off = (left + right) / 2 - J;
+      if (Math.abs(off) > 1e-6)
+        bad.push(`${name}: joint off centre by ${off.toFixed(2)}mm (columns ${left} and ${right})`);
+    }
+    assert.deepEqual(bad, [], `bar designs split by their own side joint: ${bad.join(" | ")}`);
+  }
+  console.log('every bar design has its side joint midway between two columns');
 }
