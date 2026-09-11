@@ -588,6 +588,10 @@ export const DEFAULTS = {
   // 0 blends them (soft, cloudy crossings); 100 takes the stronger of the two
   // (crisp bands with bright intersections, the argyle read).
   crossSharp: 100,
+  // The profile the two crossing families are built from. 'sine' bows the edges
+  // of a chevron on its way to the point; 'triangle' keeps them straight. See
+  // crossFamilies.
+  crossShape: 'sine',
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -1659,12 +1663,19 @@ function crossFamilies(x, y, p) {
   const kx = Math.max(0, Math.round(p.crossKx ?? 2));
   const ky = Math.max(0, Math.round(p.crossKy ?? 4));
   const per = driverPeriod(p);
-  const px = (2 * Math.PI * kx * x) / per.w;
-  const py = (2 * Math.PI * ky * y) / per.h;
-  return {
-    fa: 0.5 + 0.5 * Math.sin(px + py),
-    fb: 0.5 + 0.5 * Math.sin(px - py),
-  };
+  const ua = (kx * x) / per.w + (ky * y) / per.h;
+  const ub = (kx * x) / per.w - (ky * y) / per.h;
+  // SINE BENDS THE EDGES; TRIANGLE LEAVES THEM STRAIGHT.
+  //
+  // The two families cross and the larger of them wins, so the seam between
+  // them is a crease whatever they are made of - the vertex is sharp either
+  // way. What is NOT the same is the edge running away from it: with a sine,
+  // the contour that decides where the large holes stop is a sine curve, and a
+  // chevron built from it comes to its point through a pair of bows. A triangle
+  // wave makes the same contour a straight line, so the chevron has flat sides
+  // and reaches its point without rounding off.
+  const shape = p.crossShape ?? 'sine';
+  return { fa: waveform(ua, shape), fb: waveform(ub, shape) };
 }
 
 /** Diagonal angle the wave counts work out to, in degrees - a readout. */

@@ -525,6 +525,15 @@ const SPEC = [
     when: (st) => st.modulation === 'blocks',
   },
   {
+    key: 'crossShape',
+    kind: 'select',
+    label: 'chevron edge',
+    options: () => ['sine', 'triangle'],
+    labels: (v) => (v === 'triangle' ? 'straight' : 'bowed'),
+    when: (st) =>
+      st.modulation === 'lattice' || st.modulation === 'chevron' || st.modulation === 'blocks',
+  },
+  {
     key: 'crossSharp',
     kind: 'range',
     label: 'crossing',
@@ -1750,6 +1759,8 @@ const TIPS = {
     'How many cycles fit up the 1200mm panel height. Together with cycles-across this sets both the diamond size AND the diagonal angle: equal spacing in each direction gives 45 degrees, and unequal counts lean the lattice.',
   crossPhase:
     'Slides the blocks within the panel without changing their size. At 0 they are centred on the panel edges and corners, so every block is cut in half by the boundary. At 180 whole blocks sit inside - 2 across and 4 down at counts 2 and 4 - and the small holes land on the boundary lines where panels meet.',
+  crossShape:
+    'What the two crossing families are made of. The seam where they meet is a crease either way, so the point of a chevron is sharp in both - what changes is the edge leading to it. A sine bows that edge, so the pattern arrives at its point through a pair of curves and the tip reads blunt. A triangle makes the edge a straight line, and the chevron comes to a clean point.',
   crossSharp:
     'How the two crossing wave families combine. At 100% the stronger of the two wins, giving crisp continuous bands with bright intersections - the argyle look. Lower blends them, so the bands soften and only their crossings stay bright.',
   modulation:
