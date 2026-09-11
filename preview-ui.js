@@ -54,6 +54,9 @@ const USES = {
   chevron: ['crossKx', 'crossKy', 'crossSharp', 'gamma'],
   bands: ['modAngle', 'steps'],
   noise: ['wavelength', 'seed', 'noiseDetail', 'noiseRough', 'noiseAspect', 'noiseShear', 'gamma'],
+  // The weave shapes its ramp with all three of gamma, weave gradient and size
+  // levels - the curve, where it saturates, and how many steps it lands on.
+  herringbone: ['weaveW', 'weaveL', 'weaveGrad', 'gamma'],
   checker: ['steps'],
 };
 
@@ -554,7 +557,11 @@ const SPEC = [
     kind: 'range',
     label: 'size levels',
     min: 1,
-    max: 6,
+    // A WEAVE UNIT IS THIRTEEN ROWS DEEP, so it can use more steps than the six
+    // this used to stop at - and Dot weave ref was already saved at 7, a value
+    // the slider could not reach or even show. Widening the range moves nothing
+    // that is already set.
+    max: 13,
     step: 1,
   },
   {
