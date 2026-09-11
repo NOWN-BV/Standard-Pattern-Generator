@@ -5089,14 +5089,27 @@ function shapeVerts(type, cx, cy, r, opts = {}) {
       const ratio = Math.max(1.05, opts.ratio ?? 2.5);
       const slw = r / ratio;
       const sll = r;
-      for (let i = 0; i <= 8; i++) {
-        const a = Math.PI + (i * Math.PI) / 8;
-        verts.push([cx + slw * Math.cos(a), cy - (sll - slw) + slw * Math.sin(a)]);
-      }
-      for (let i = 0; i <= 8; i++) {
-        const a = (i * Math.PI) / 8;
-        verts.push([cx + slw * Math.cos(a), cy + (sll - slw) + slw * Math.sin(a)]);
-      }
+      // A CAPSULE IS FOUR POINTS, NOT EIGHTEEN.
+      //
+      // Both ends are exact half circles of radius slw, so each is one ARC and
+      // wants one vertex carrying a bulge - tan(sweep / 4), which for a half
+      // turn is exactly 1. Drawn as nine chords apiece instead, the ends came
+      // out as faceted polygons: eighteen points per slot where four will do,
+      // an end that is not round, and a DXF that carries the error into the
+      // machine. Every consumer here already reads bulges - the area integral
+      // takes the circular segments, the extent sweeps the arcs, SVG emits A
+      // and the DXF writes group code 42 - so this only had to stop
+      // approximating.
+      //
+      // Counter-clockwise: left of the bottom cap, round UNDER to its right,
+      // straight up the right side, right of the top cap, round OVER to its
+      // left, straight down.
+      verts.push(
+        [cx - slw, cy - (sll - slw), 1],
+        [cx + slw, cy - (sll - slw)],
+        [cx + slw, cy + (sll - slw), 1],
+        [cx - slw, cy + (sll - slw)]
+      );
       break;
     }
     case 'organic': {
