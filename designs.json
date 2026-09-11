@@ -6866,12 +6866,12 @@
   },
   "Dot weave ref": {
     "cols": 2,
-    "rows": 2,
+    "rows": 1,
     "gap": 0,
     "lattice": "stagger",
     "pitch": 50,
     "staggerFrac": 0.5,
-    "latticeAspect": 50,
+    "latticeAspect": 75,
     "latticeAngle": 0,
     "shape": "circle",
     "minDia": 9,
@@ -6881,7 +6881,7 @@
     "spanMm": 2400,
     "modAngle": 90,
     "gamma": 1,
-    "sizeLevels": 5,
+    "sizeLevels": 7,
     "sizeSplit": 60,
     "invert": false,
     "wavelength": 400,
@@ -6987,7 +6987,7 @@
     "designName": "Dot weave ref",
     "savedAt": "2026-09-07T11:53:58.502Z",
     "weaveW": 150,
-    "weaveL": 316,
+    "weaveL": 300,
     "weaveLean": 63
   },
   "Rhomb shear": {

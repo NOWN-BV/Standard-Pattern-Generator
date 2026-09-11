@@ -2406,6 +2406,43 @@ function rampCount(x, y, nw, nh, a, p) {
   return Math.abs(c) >= Math.abs(s) ? u : v;
 }
 
+
+/**
+ * The 35 diamond cells of one weave unit, as (i, j) offsets from its centre.
+ *
+ * Read out of the reference drawing rather than composed: ref.dxf's unit
+ * outline was tested against the rhombic lattice it is drawn on, and these are
+ * the cells whose centres fell inside. Rows run j = 7 at the top tip down to
+ * j = -7 at the bottom, three cells wide through the middle and one at each end.
+ */
+let WEAVE_MOTIF = null;
+function weaveMotif() {
+  if (WEAVE_MOTIF) return WEAVE_MOTIF;
+  // Thirteen rows, two cells wide, tapering to one at each tip: down-left for
+  // three rows, turn, down-right for seven, turn, down-left for three. That is
+  // the Z in the drawing, and these 24 cells tile the plane exactly at a pitch
+  // of 6 across and 8 down with every second column dropped by 4 - checked, no
+  // gaps and no overlaps.
+  const cells = [
+    [-1, 6],
+    [-2, 5], [0, 5],
+    [-3, 4], [-1, 4],
+    [-4, 3], [-2, 3],
+    [-3, 2], [-1, 2],
+    [-2, 1], [0, 1],
+    [-1, 0], [1, 0],
+    [0, -1], [2, -1],
+    [1, -2], [3, -2],
+    [2, -3], [4, -3],
+    [1, -4], [3, -4],
+    [0, -5], [2, -5],
+    [1, -6],
+  ];
+  WEAVE_MOTIF = new Set(cells.map((c) => c[0] + ',' + c[1]));
+  return WEAVE_MOTIF;
+}
+
+
 /** Modulation driver -> t in [0,1] at a point, before invert/gamma. */
 function modulate(x, y, p, f) {
   // Normalisation basis: the run itself, or a fixed mm span that does not
@@ -2514,31 +2551,46 @@ function modulate(x, y, p, f) {
     // a repeat every SECOND column - so the period holds a whole number of
     // pairs, not of columns.
     case 'herringbone': {
-      // MEASURED OFF THE DRAWING, not guessed at. The reference tiles as
-      // interlocking zigzag ribbons: columns at one pitch, units stacked at
-      // another down each column, and every second column dropped by HALF a
-      // unit so the two interlock. Its own numbers are 519.4 and 1093.6mm,
-      // a ratio of 1 to 2.105, and the two shapes in it are mirror images.
+      // THE UNIT, TAKEN OFF THE DRAWING CELL BY CELL.
       //
-      // The size runs large at the two TIPS of a unit and small at its waist,
-      // so the field is simply how far you are from the middle of the unit you
-      // are in. Where two units meet, both are at their tip - that band of
-      // large holes is the seam of the weave, and the small waists are what
-      // separate one stroke from the next.
+      // A cell is a DIAMOND and a unit is a chain of 24 of them - see
+      // weaveMotif. The size is how far a cell sits from the middle of its own
+      // unit, so a unit is largest at its two tips and smallest at its waist,
+      // which is the gradient the drawing shades.
+      //
+      // The numbers are the drawing's: ref.dxf was parsed, its unit outlines
+      // tested against the lattice, and the result checked by redrawing it. The
+      // one thing that had to be got right to read it at all is the PARITY -
+      // the polygon's corners sit on the same lattice as its cells' centres
+      // would on the obvious choice, so a boundary ran straight through the
+      // points being tested and every marginal cell came out a coin toss. The
+      // cells are on the other parity, and with that the two shapes come out as
+      // exact mirrors of one another, 24 cells each.
       const per = driverPeriod(p);
       const pairs = Math.max(1, Math.round(per.w / (2 * Math.max(1, p.weaveW ?? 150))));
-      const w = per.w / (2 * pairs);
+      const uw = per.w / (2 * pairs); // one unit column
       const rows = Math.max(1, Math.round(per.h / Math.max(1, p.weaveL ?? 300)));
-      const Lr = per.h / rows;
-      const col = Math.floor(x / w);
-      const odd = (((col % 2) + 2) % 2) === 1;
-      // The arms of a unit slope, so the bands do too - lean is the drawing s
-      // own 519.4 across per 820.2 down, mirrored in the odd columns.
-      const lx = x - col * w;
-      const lean = clamp(p.weaveLean ?? 63, 0, 200) / 100;
-      const yy = y + (odd ? Lr / 2 : 0) + (odd ? -1 : 1) * lean * (lx - w / 2);
-      const ly = yy - Math.round(yy / Lr) * Lr;
-      return Math.min(1, Math.abs(ly) / (Lr / 2));
+      const uh = per.h / rows; // one unit down the column
+      const a = uw / 6;
+      const b = uh / 8;
+      let ci = Math.round(x / a);
+      const cj = Math.round(y / b);
+      // Cells live on the odd parity; relabel rather than reject, so a lattice
+      // that happens to sit on the other one still reads.
+      if ((((ci + cj) % 2) + 2) % 2 === 0) ci += 1;
+      const M = weaveMotif();
+      // Which unit owns this cell. The tiling is exact, so exactly one will.
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const c = Math.round(ci / 6) + dc;
+          const odd = (((c % 2) + 2) % 2) === 1;
+          const r = Math.round((cj - (odd ? 4 : 0)) / 8) + dr;
+          const di = ci - 6 * c;
+          const dj = cj - 8 * r - (odd ? 4 : 0);
+          if (M.has((odd ? -di : di) + ',' + dj)) return Math.min(1, Math.abs(dj) / 6);
+        }
+      }
+      return 0.5;
     }
     // Two wave families crossing each other. One family alone gives diagonal
     // stripes; crossing a second at 90 degrees to it turns the stripes into a
