@@ -529,6 +529,18 @@ const SPEC = [
     when: (st) => st.modulation === 'blocks',
   },
   {
+    key: 'crossSpin',
+    kind: 'select',
+    label: 'quarter turns',
+    options: () => [0, 90, 180, 270],
+    labels: (v) => `${v} deg`,
+    when: (st) =>
+      st.modulation === 'lattice' ||
+      st.modulation === 'chevron' ||
+      st.modulation === 'wedge' ||
+      st.modulation === 'blocks',
+  },
+  {
     key: 'crossTurn',
     kind: 'select',
     label: 'cross axes',
@@ -1834,6 +1846,8 @@ const TIPS = {
     'How many cycles fit up the 1200mm panel height. Together with cycles-across this sets both the diamond size AND the diagonal angle: equal spacing in each direction gives 45 degrees, and unequal counts lean the lattice.',
   crossPhase:
     'Slides the blocks within the panel without changing their size. At 0 they are centred on the panel edges and corners, so every block is cut in half by the boundary. At 180 whole blocks sit inside - 2 across and 4 down at counts 2 and 4 - and the small holes land on the boundary lines where panels meet.',
+  crossSpin:
+    'Turns the pattern in quarter steps, clockwise. The holes themselves never turn - a rotated lattice cannot meet both panel edges - so the turn is taken out of the field, by reading it at rotated coordinates. It is a true rotation only where the cell is square, 600 divided by cycles-across matching 1200 divided by cycles-up; on an oblong cell the motif still turns but the cell turns with it and changes shape.',
   crossTurn:
     'Which way the two crossing families run. Diagonal sums and differences the two counts, so the families lie on the diagonals and the cell they bound is a diamond - cut by a sawtooth, a triangle. Square is the same pair turned 45 degrees: one family along x, the other along y, and the cell stands square to the panel. It is only an actual SQUARE when the two counts give the same spacing, 600 / across against 1200 / down, so down has to be twice across - 3 and 6 gives a 200mm square.',
   crossShape:

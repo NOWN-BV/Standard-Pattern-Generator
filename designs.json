@@ -13400,11 +13400,12 @@
     "zoom": 90,
     "presetId": "",
     "designName": "Lattice wedge flip only",
-    "savedAt": "2026-09-11T11:16:56.391Z",
+    "savedAt": "2026-09-11T11:24:45.023Z",
     "crossDuty": 100,
     "crossTurn": "square",
     "wedgeFrom": "centre",
-    "wedgeSide": "flip only"
+    "wedgeSide": "flip only",
+    "crossSpin": 90
   },
   "Lattice wedge flip only cut": {
     "cols": 4,
@@ -13548,10 +13549,11 @@
     "zoom": 90,
     "presetId": "",
     "designName": "Lattice wedge flip only cut",
-    "savedAt": "2026-09-11T11:16:56.414Z",
+    "savedAt": "2026-09-11T11:24:45.046Z",
     "crossDuty": 100,
     "crossTurn": "square",
     "wedgeFrom": "centre",
-    "wedgeSide": "flip only"
+    "wedgeSide": "flip only",
+    "crossSpin": 90
   }
 }

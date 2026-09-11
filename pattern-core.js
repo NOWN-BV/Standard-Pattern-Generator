@@ -610,6 +610,9 @@ export const DEFAULTS = {
   // For 'wedge': whether the far side of the seam is held flat at the small end
   // or carries the same gradient inverted. See the driver.
   wedgeSide: 'flat',
+  // Quarter turns applied to the crossing families' field, in degrees. See
+  // crossFamilies - the lattice never turns, only what is read off it.
+  crossSpin: 0,
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -1695,9 +1698,25 @@ function crossFamilies(x, y, p) {
   // against 1200 / ky - so ky = 2 kx. At 3 by 6 that is a 200mm square.
   //
   // Both tile: the period is per.w / kx across and per.h / ky down either way.
+  // TURNING THE FIELD, NOT THE LATTICE.
+  //
+  // The holes cannot be rotated - a rotated lattice cannot land on both panel
+  // edges at once - so a quarter turn has to be taken out of the FIELD, by
+  // reading it at rotated coordinates. Rotating the image a quarter turn
+  // clockwise is sampling at (y, -x), and since gx and gy are positions in
+  // cycles that is just the pair swapped with one negated. The waveforms are
+  // periodic, so a negative coordinate is only the ramp running the other way.
+  //
+  // This is a true rotation only where the cell is SQUARE - 600 / kx equal to
+  // 1200 / ky - because only then does the quarter turn carry the grid of cells
+  // onto itself. On an oblong cell it still turns the motif, but the cell it
+  // sits in changes shape with it.
+  const spin = ((Math.round((p.crossSpin ?? 0) / 90) % 4) + 4) % 4;
+  const rx = spin === 1 ? gy : spin === 2 ? -gx : spin === 3 ? -gy : gx;
+  const ry = spin === 1 ? -gx : spin === 2 ? -gy : spin === 3 ? gx : gy;
   const square = (p.crossTurn ?? 'diagonal') === 'square';
-  const ua = square ? gx : gx + gy;
-  const ub = square ? gy : gx - gy;
+  const ua = square ? rx : rx + ry;
+  const ub = square ? ry : rx - ry;
   // SINE BENDS THE EDGES; TRIANGLE LEAVES THEM STRAIGHT.
   //
   // The two families cross and the larger of them wins, so the seam between

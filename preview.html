@@ -757,6 +757,9 @@ const DEFAULTS = {
   // For 'wedge': whether the far side of the seam is held flat at the small end
   // or carries the same gradient inverted. See the driver.
   wedgeSide: 'flat',
+  // Quarter turns applied to the crossing families' field, in degrees. See
+  // crossFamilies - the lattice never turns, only what is read off it.
+  crossSpin: 0,
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -1842,9 +1845,25 @@ function crossFamilies(x, y, p) {
   // against 1200 / ky - so ky = 2 kx. At 3 by 6 that is a 200mm square.
   //
   // Both tile: the period is per.w / kx across and per.h / ky down either way.
+  // TURNING THE FIELD, NOT THE LATTICE.
+  //
+  // The holes cannot be rotated - a rotated lattice cannot land on both panel
+  // edges at once - so a quarter turn has to be taken out of the FIELD, by
+  // reading it at rotated coordinates. Rotating the image a quarter turn
+  // clockwise is sampling at (y, -x), and since gx and gy are positions in
+  // cycles that is just the pair swapped with one negated. The waveforms are
+  // periodic, so a negative coordinate is only the ramp running the other way.
+  //
+  // This is a true rotation only where the cell is SQUARE - 600 / kx equal to
+  // 1200 / ky - because only then does the quarter turn carry the grid of cells
+  // onto itself. On an oblong cell it still turns the motif, but the cell it
+  // sits in changes shape with it.
+  const spin = ((Math.round((p.crossSpin ?? 0) / 90) % 4) + 4) % 4;
+  const rx = spin === 1 ? gy : spin === 2 ? -gx : spin === 3 ? -gy : gx;
+  const ry = spin === 1 ? -gx : spin === 2 ? -gy : spin === 3 ? gx : gy;
   const square = (p.crossTurn ?? 'diagonal') === 'square';
-  const ua = square ? gx : gx + gy;
-  const ub = square ? gy : gx - gy;
+  const ua = square ? rx : rx + ry;
+  const ub = square ? ry : rx - ry;
   // SINE BENDS THE EDGES; TRIANGLE LEAVES THEM STRAIGHT.
   //
   // The two families cross and the larger of them wins, so the seam between
@@ -6534,6 +6553,18 @@ const SPEC = [
     when: (st) => st.modulation === 'blocks',
   },
   {
+    key: 'crossSpin',
+    kind: 'select',
+    label: 'quarter turns',
+    options: () => [0, 90, 180, 270],
+    labels: (v) => `${v} deg`,
+    when: (st) =>
+      st.modulation === 'lattice' ||
+      st.modulation === 'chevron' ||
+      st.modulation === 'wedge' ||
+      st.modulation === 'blocks',
+  },
+  {
     key: 'crossTurn',
     kind: 'select',
     label: 'cross axes',
@@ -7839,6 +7870,8 @@ const TIPS = {
     'How many cycles fit up the 1200mm panel height. Together with cycles-across this sets both the diamond size AND the diagonal angle: equal spacing in each direction gives 45 degrees, and unequal counts lean the lattice.',
   crossPhase:
     'Slides the blocks within the panel without changing their size. At 0 they are centred on the panel edges and corners, so every block is cut in half by the boundary. At 180 whole blocks sit inside - 2 across and 4 down at counts 2 and 4 - and the small holes land on the boundary lines where panels meet.',
+  crossSpin:
+    'Turns the pattern in quarter steps, clockwise. The holes themselves never turn - a rotated lattice cannot meet both panel edges - so the turn is taken out of the field, by reading it at rotated coordinates. It is a true rotation only where the cell is square, 600 divided by cycles-across matching 1200 divided by cycles-up; on an oblong cell the motif still turns but the cell turns with it and changes shape.',
   crossTurn:
     'Which way the two crossing families run. Diagonal sums and differences the two counts, so the families lie on the diagonals and the cell they bound is a diamond - cut by a sawtooth, a triangle. Square is the same pair turned 45 degrees: one family along x, the other along y, and the cell stands square to the panel. It is only an actual SQUARE when the two counts give the same spacing, 600 / across against 1200 / down, so down has to be twice across - 3 and 6 gives a 200mm square.',
   crossShape:
