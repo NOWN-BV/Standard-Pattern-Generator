@@ -4155,7 +4155,43 @@ export function buildField(params) {
     // the position, so they are the same for every tile.
     const K = barMax + 1;
     const rowOf = (c) => Math.round(c.cy / py);
-    const isBreak = (c) => ((((rowOf(c) % K) + K) % K) === 0);
+    // EVERY COLUMN BREAKS ON ITS OWN ROWS.
+    //
+    // Anchoring the breaks to the lattice is what made a bar local enough for
+    // P4, but anchoring them to the SAME rows in every column put the whole
+    // wall's breaks on one line: a row where every stretch is interrupted is a
+    // row that carries a fifth less metal-free length than its neighbours, and
+    // eight of those up a panel read as horizontal stripes. Measured before
+    // this: 15.0 bars crossing a break row against 19.1 elsewhere, a 21 %
+    // deficit repeating every 159mm.
+    //
+    // The block grid is given a phase per COLUMN instead, drawn from the column
+    // index so it is the same number on every tile - which is all locality
+    // needed. The breaks scatter across the rows and no line forms, while each
+    // column still cuts at fixed rows of its own, so a bar is still a function
+    // of its block and nothing else.
+    const colStep = latticeSpacing(p).px;
+    const colOf = (c) => Math.round(c.cx / colStep);
+    // WALKED, NOT HASHED. A hash spreads the phases unevenly over a few dozen
+    // columns - some rows still collect more breaks than others, and the stripe
+    // came back faint. Stepping by a number coprime with K visits all K phases
+    // in turn and returns to the start only after K columns, so the breaks are
+    // spread exactly evenly and no two neighbouring columns share a phase.
+    let step = 1 + (((p.cullSeed | 0) >>> 0) % Math.max(1, K - 1));
+    const gcd = (x, y) => (y ? gcd(y, x % y) : x);
+    while (K > 1 && gcd(step, K) !== 1) step = (step % (K - 1)) + 1;
+    // AND THE WALK HAS TO REPEAT WITH THE PANEL.
+    //
+    // Counting columns across the whole wall gives the same column a different
+    // phase on each panel, so two panels present different breaks at the same
+    // place on a shared joint - which is exactly the disagreement P4 must not
+    // have, and it survived a blend band of 560mm because blending the field
+    // cannot fix a phase that is keyed to the wall. Taken modulo the columns in
+    // one panel, the walk repeats with the panel and every panel breaks in the
+    // same places.
+    const nCols = Math.max(1, Math.round(PANEL.moduleW / colStep));
+    const phaseOf = (c) => ((((((colOf(c) % nCols) + nCols) % nCols) * step) % K) + K) % K;
+    const isBreak = (c) => ((((rowOf(c) - phaseOf(c)) % K) + K) % K) === 0;
     // Give up a break row only where a stretch runs through it - its two
     // neighbours in the column both survive. Anything shorter is untouched.
     {
