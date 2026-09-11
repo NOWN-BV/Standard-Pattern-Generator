@@ -559,9 +559,11 @@ const SPEC = [
     min: 1,
     // A WEAVE UNIT IS THIRTEEN ROWS DEEP, so it can use more steps than the six
     // this used to stop at - and Dot weave ref was already saved at 7, a value
-    // the slider could not reach or even show. Widening the range moves nothing
-    // that is already set.
-    max: 13,
+    // the slider could not reach or even show. Past the number of rows the unit
+    // actually has, extra levels stop splitting anything and the ramp is simply
+    // continuous, which is a useful end of the range to be able to reach.
+    // Widening it moves nothing that is already set.
+    max: 32,
     step: 1,
   },
   {
@@ -578,8 +580,8 @@ const SPEC = [
     key: 'gamma',
     kind: 'range',
     label: 'gamma',
-    min: 0.2,
-    max: 3,
+    min: 0.1,
+    max: 6,
     step: 0.05,
     when: (s) => (USES[s.modulation] || []).includes('gamma'),
   },
@@ -607,8 +609,12 @@ const SPEC = [
     key: 'weaveGrad',
     kind: 'range',
     label: 'weave gradient',
-    min: 20,
-    max: 100,
+    // Down to 5 the ramp is over almost at once and the weave reads as two
+    // tones. Past 100 it is spent over MORE than the half-unit, so the tip
+    // stops short of the stated max diameter - softer, at the cost of never
+    // cutting the largest hole the design asks for.
+    min: 5,
+    max: 200,
     step: 5,
     unit: '%',
     when: (st) => st.modulation === 'herringbone',
