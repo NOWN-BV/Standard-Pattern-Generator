@@ -754,6 +754,9 @@ const DEFAULTS = {
   // For the 'wedge' driver: whether its ramp is measured from the seam the two
   // families share, or out of the middle of the cell. See the driver.
   wedgeFrom: 'seam',
+  // For 'wedge': whether the far side of the seam is held flat at the small end
+  // or carries the same gradient inverted. See the driver.
+  wedgeSide: 'flat',
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -2742,10 +2745,21 @@ function modulate(x, y, p, f) {
       // gives square rings about that point - smallest at the centre, full at
       // the cell's border. Masked to the same half, the gradient then opens out
       // of the centre rather than climbing towards a corner.
-      const base =
+      const g =
         (p.wedgeFrom ?? 'seam') === 'centre'
-          ? (d > 0 ? Math.min(1, 2 * Math.max(Math.abs(fa - 0.5), Math.abs(fb - 0.5))) : 0)
-          : Math.max(0, d);
+          ? Math.min(1, 2 * Math.max(Math.abs(fa - 0.5), Math.abs(fb - 0.5)))
+          : Math.abs(d);
+      // WHAT THE FAR SIDE OF THE SEAM DOES.
+      //
+      // 'flat' holds it at the small end, so the half reads as plain ground and
+      // a removal ranked on this driver takes it out whole.
+      //
+      // 'flip' gives it the SAME gradient turned over. Both halves are then
+      // fully modulated and the seam is where large meets small - the two
+      // triangles of a cell read as opposites of each other rather than as
+      // pattern against ground, and the boundary is a hard line because the
+      // field steps across it instead of passing through zero.
+      const base = (p.wedgeSide ?? 'flat') === 'flip' ? (d > 0 ? g : 1 - g) : d > 0 ? g : 0;
       return base * sharp + ((d + 1) / 2) * (1 - sharp);
     }
 
@@ -6524,6 +6538,14 @@ const SPEC = [
       st.modulation === 'blocks',
   },
   {
+    key: 'wedgeSide',
+    kind: 'select',
+    label: 'far side of seam',
+    options: () => ['flat', 'flip'],
+    labels: (v) => (v === 'flip' ? 'gradient inverted' : 'flat, no gradient'),
+    when: (st) => st.modulation === 'wedge',
+  },
+  {
     key: 'wedgeFrom',
     kind: 'select',
     label: 'wedge ramp from',
@@ -7796,6 +7818,8 @@ const TIPS = {
     'Which way the two crossing families run. Diagonal sums and differences the two counts, so the families lie on the diagonals and the cell they bound is a diamond - cut by a sawtooth, a triangle. Square is the same pair turned 45 degrees: one family along x, the other along y, and the cell stands square to the panel. It is only an actual SQUARE when the two counts give the same spacing, 600 / across against 1200 / down, so down has to be twice across - 3 and 6 gives a 200mm square.',
   crossShape:
     'What the two crossing families are made of. The seam where they meet is a crease either way, so the point of a chevron is sharp in both - what changes is the edge leading to it. A sine bows that edge, so the pattern arrives at its point through a pair of curves and the tip reads blunt. A triangle makes the edge a straight line, and the chevron comes to a clean point.',
+  wedgeSide:
+    'What the far side of the seam does. Flat holds it at the small end, so that half reads as plain ground and a removal ranked on the pattern takes it out whole. Flip gives it the same gradient turned over instead: both halves are fully modulated, the seam becomes the place where large meets small, and the two triangles of a cell read as opposites of one another. The boundary is hard either way - the field steps across the line rather than passing through it.',
   wedgeFrom:
     'Where the wedge measures its ramp from. From the seam it climbs away from the line the two families share, so the ramp spans the open half and peaks in the far corner. From the centre it climbs out of the middle of the cell instead, in square rings, so the gradient opens out of a point and reaches full size at the cell border. The flat half is the same either way.',
   crossDuty:

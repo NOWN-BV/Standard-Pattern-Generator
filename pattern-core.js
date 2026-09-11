@@ -607,6 +607,9 @@ export const DEFAULTS = {
   // For the 'wedge' driver: whether its ramp is measured from the seam the two
   // families share, or out of the middle of the cell. See the driver.
   wedgeFrom: 'seam',
+  // For 'wedge': whether the far side of the seam is held flat at the small end
+  // or carries the same gradient inverted. See the driver.
+  wedgeSide: 'flat',
   // Slides the blocks within the panel without changing their size. 0 centres
   // them on the panel edges, which cuts every one in half; 180 puts whole
   // blocks inside and the small holes on the boundary. See the blocks driver.
@@ -2595,10 +2598,21 @@ function modulate(x, y, p, f) {
       // gives square rings about that point - smallest at the centre, full at
       // the cell's border. Masked to the same half, the gradient then opens out
       // of the centre rather than climbing towards a corner.
-      const base =
+      const g =
         (p.wedgeFrom ?? 'seam') === 'centre'
-          ? (d > 0 ? Math.min(1, 2 * Math.max(Math.abs(fa - 0.5), Math.abs(fb - 0.5))) : 0)
-          : Math.max(0, d);
+          ? Math.min(1, 2 * Math.max(Math.abs(fa - 0.5), Math.abs(fb - 0.5)))
+          : Math.abs(d);
+      // WHAT THE FAR SIDE OF THE SEAM DOES.
+      //
+      // 'flat' holds it at the small end, so the half reads as plain ground and
+      // a removal ranked on this driver takes it out whole.
+      //
+      // 'flip' gives it the SAME gradient turned over. Both halves are then
+      // fully modulated and the seam is where large meets small - the two
+      // triangles of a cell read as opposites of each other rather than as
+      // pattern against ground, and the boundary is a hard line because the
+      // field steps across it instead of passing through zero.
+      const base = (p.wedgeSide ?? 'flat') === 'flip' ? (d > 0 ? g : 1 - g) : d > 0 ? g : 0;
       return base * sharp + ((d + 1) / 2) * (1 - sharp);
     }
 
